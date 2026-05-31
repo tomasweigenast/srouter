@@ -15,13 +15,6 @@
       <canvas id="chart-lan" height="120"></canvas>
     </div>
   </div>
-
-  {{/* SSE feed — invisible, just triggers JS updates */}}
-  <div id="bw-sse"
-       hx-ext="sse"
-       sse-connect="/bandwidth/events"
-       sse-swap="bwdata"
-       style="display:none"></div>
 </div>
 {{end}}
 
@@ -30,24 +23,24 @@
 <script>
 const MAX_POINTS = 60;
 
-function makeChart(canvasId, label) {
+function makeChart(canvasId) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   return new Chart(ctx, {
     type: 'line',
     data: {
       labels: Array(MAX_POINTS).fill(''),
       datasets: [
-        { label: 'RX (KB/s)', data: Array(MAX_POINTS).fill(0), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
-        { label: 'TX (KB/s)', data: Array(MAX_POINTS).fill(0), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+        { label: 'RX (KB/s)', data: Array(MAX_POINTS).fill(null), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.4, pointRadius: 0 },
+        { label: 'TX (KB/s)', data: Array(MAX_POINTS).fill(null), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.4, pointRadius: 0 },
       ]
     },
     options: {
       animation: false,
       scales: {
         x: { display: false },
-        y: { min: 0, ticks: { color: '#6b7280' }, grid: { color: '#1f2937' } }
+        y: { min: 0, ticks: { color: '#6b7280' }, grid: { color: '#e5e7eb' } }
       },
-      plugins: { legend: { labels: { color: '#9ca3af', boxWidth: 12 } } }
+      plugins: { legend: { labels: { color: '#374151', boxWidth: 12 } } }
     }
   });
 }
@@ -64,14 +57,16 @@ function pushData(chart, rx, tx) {
     chart.data.datasets[0].data.shift();
     chart.data.datasets[1].data.shift();
   }
-  chart.update();
+  chart.update('none');
 }
 
-document.getElementById('bw-sse').addEventListener('sse:bwdata', function(e) {
-  const d = JSON.parse(e.detail.data);
-  if (charts[d.Iface]) {
-    pushData(charts[d.Iface], d.RxBps, d.TxBps);
-  }
+// Use native EventSource — more reliable than HTMX SSE for JSON data streams
+const es = new EventSource('/bandwidth/events');
+es.addEventListener('bwdata', e => {
+  const d = JSON.parse(e.data);
+  if (charts[d.Iface]) pushData(charts[d.Iface], d.RxBps, d.TxBps);
 });
+es.onerror = () => console.warn('bandwidth SSE disconnected, will reconnect');
+window.addEventListener('beforeunload', () => es.close());
 </script>
 {{end}}
