@@ -1,0 +1,14 @@
+{{define "dhcp_reservation_row"}}
+<tr class="hover:bg-gray-800/50 transition-colors">
+  <td class="px-4 py-3 mono text-gray-300">{{.MAC}}</td>
+  <td class="px-4 py-3 mono text-blue-300">{{.IP}}</td>
+  <td class="px-4 py-3 text-gray-300">{{if .Hostname}}{{.Hostname}}{{else}}<span class="text-gray-600">—</span>{{end}}</td>
+  <td class="px-4 py-3 text-right">
+    <button hx-delete="/dhcp/reservations/{{.MAC}}"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            hx-confirm="Delete reservation for {{.MAC}}?"
+            class="text-xs text-red-400 hover:text-red-300 transition-colors">Delete</button>
+  </td>
+</tr>
+{{end}}

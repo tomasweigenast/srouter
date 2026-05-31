@@ -1,0 +1,16 @@
+/* Custom overrides — keep minimal, Tailwind handles layout */
+
+/* Scrollbar styling for log viewer */
+.log-container::-webkit-scrollbar { width: 6px; }
+.log-container::-webkit-scrollbar-track { background: #1e293b; }
+.log-container::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
+/* Code / monospace areas */
+.mono { font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace; }
+
+/* Status dot animation */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.status-dot-pulse { animation: pulse-dot 2s ease-in-out infinite; }

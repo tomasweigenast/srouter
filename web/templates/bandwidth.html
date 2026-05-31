@@ -1,0 +1,77 @@
+{{template "layout.html" .}}
+{{define "title"}}Bandwidth — srouter{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+  <h1 class="text-xl font-semibold text-white">Bandwidth</h1>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+      <p class="text-sm font-medium text-gray-400 mb-4">ppp0 — WAN</p>
+      <canvas id="chart-ppp0" height="120"></canvas>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+      <p class="text-sm font-medium text-gray-400 mb-4">lan — LAN</p>
+      <canvas id="chart-lan" height="120"></canvas>
+    </div>
+  </div>
+
+  {{/* SSE feed — invisible, just triggers JS updates */}}
+  <div id="bw-sse"
+       hx-ext="sse"
+       sse-connect="/bandwidth/events"
+       sse-swap="bwdata"
+       style="display:none"></div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script src="/static/vendor/chart.min.js"></script>
+<script>
+const MAX_POINTS = 60;
+
+function makeChart(canvasId, label) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: Array(MAX_POINTS).fill(''),
+      datasets: [
+        { label: 'RX (KB/s)', data: Array(MAX_POINTS).fill(0), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+        { label: 'TX (KB/s)', data: Array(MAX_POINTS).fill(0), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+      ]
+    },
+    options: {
+      animation: false,
+      scales: {
+        x: { display: false },
+        y: { min: 0, ticks: { color: '#6b7280' }, grid: { color: '#1f2937' } }
+      },
+      plugins: { legend: { labels: { color: '#9ca3af', boxWidth: 12 } } }
+    }
+  });
+}
+
+const charts = {
+  'ppp0': makeChart('chart-ppp0'),
+  'lan':  makeChart('chart-lan'),
+};
+
+function pushData(chart, rx, tx) {
+  chart.data.datasets[0].data.push(rx / 1024);
+  chart.data.datasets[1].data.push(tx / 1024);
+  if (chart.data.datasets[0].data.length > MAX_POINTS) {
+    chart.data.datasets[0].data.shift();
+    chart.data.datasets[1].data.shift();
+  }
+  chart.update();
+}
+
+document.getElementById('bw-sse').addEventListener('sse:bwdata', function(e) {
+  const d = JSON.parse(e.detail.data);
+  if (charts[d.Iface]) {
+    pushData(charts[d.Iface], d.RxBps, d.TxBps);
+  }
+});
+</script>
+{{end}}

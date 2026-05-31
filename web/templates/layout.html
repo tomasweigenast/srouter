@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{block "title" .}}srouter{{end}}</title>
+  <link rel="stylesheet" href="/static/vendor/tailwind.css">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/vendor/htmx.min.js"></script>
+  <script src="/static/vendor/sse.js"></script>
+</head>
+<body class="h-full bg-gray-950 text-gray-100 flex">
+
+  {{/* ── Sidebar ──────────────────────────────────────────────────── */}}
+  <aside class="w-56 shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
+    <div class="px-5 py-4 border-b border-gray-800">
+      <span class="text-lg font-bold tracking-tight text-white">srouter</span>
+      <span class="ml-2 text-xs text-gray-500">dashboard</span>
+    </div>
+
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto text-sm">
+      {{$p := .ActivePage}}
+      {{template "navlink" (navItem "/dashboard"    "dashboard"    "Dashboard"       $p)}}
+      {{template "navlink" (navItem "/dhcp"         "dhcp"         "DHCP"            $p)}}
+      {{template "navlink" (navItem "/dns"          "dns"          "DNS"             $p)}}
+      {{template "navlink" (navItem "/network"      "network"      "Network"         $p)}}
+      {{template "navlink" (navItem "/firewall"     "firewall"     "Firewall"        $p)}}
+      {{template "navlink" (navItem "/portforward"  "portforward"  "Port Forwarding" $p)}}
+      {{template "navlink" (navItem "/bandwidth"    "bandwidth"    "Bandwidth"       $p)}}
+      {{template "navlink" (navItem "/logs"         "logs"         "Logs"            $p)}}
+      {{template "navlink" (navItem "/wol"          "wol"          "Wake-on-LAN"     $p)}}
+    </nav>
+
+    <div class="px-4 py-3 border-t border-gray-800 flex items-center justify-between text-xs text-gray-400">
+      <span>{{.Username}}</span>
+      <form method="POST" action="/logout">
+        <button type="submit" class="hover:text-white transition-colors">Sign out</button>
+      </form>
+    </div>
+  </aside>
+
+  {{/* ── Main content ─────────────────────────────────────────────── */}}
+  <main class="flex-1 overflow-auto">
+    <div class="px-8 py-6">
+      {{block "content" .}}{{end}}
+    </div>
+  </main>
+
+  {{block "scripts" .}}{{end}}
+</body>
+</html>
+
+{{define "navlink"}}
+<a href="{{.Href}}"
+   class="flex items-center px-3 py-2 rounded-md transition-colors text-sm
+          {{if eq .ID .Active}}bg-blue-600 text-white font-medium{{else}}text-gray-400 hover:bg-gray-800 hover:text-white{{end}}">
+  {{.Label}}
+</a>
+{{end}}

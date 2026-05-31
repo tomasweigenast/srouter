@@ -1,6 +1,6 @@
 # srouter
 
-Web dashboard for managing an Alpine Linux software router running as a VM in Proxmox. Provides visibility and control over PPPoE, DHCP/DNS, firewall rules, and port forwarding.
+Web dashboard for managing an Alpine Linux software router running as a VM in Proxmox. Enterprise-grade visibility and control over PPPoE, DHCP/DNS, firewall, port forwarding, bandwidth, logs, and Wake-on-LAN.
 
 ## Stack
 
@@ -8,21 +8,52 @@ Web dashboard for managing an Alpine Linux software router running as a VM in Pr
 |---|---|
 | Language | Go 1.25 |
 | HTTP router | `go-chi/chi` v5 |
+| Frontend | Go `html/template` + HTMX + Tailwind CSS v4 + Chart.js (all vendor-local, no CDN) |
+| Live data | Server-Sent Events (SSE) |
 | Database | SQLite via `modernc.org/sqlite` (pure Go, no CGO) |
 | Migrations | `pressly/goose` v3 — SQL files in `internal/migrations/` |
 | Config | TOML at `/etc/srouter/config.toml` |
-| Auth | Linux-PAM — login with existing Alpine system users |
-| Frontend | HTML templates + plain CSS/JS, SSE for live data |
-| Logging | `log/slog` text handler to stderr |
+| Auth | Linux-PAM (`msteinert/pam/v2`) — login with existing Alpine system users |
+| Logging | `log/slog` text handler to stderr, package-scoped via `internal/logging` |
 
-> **Note:** PAM auth is the only CGO dependency. All other packages are pure Go.
+> **CGO:** `msteinert/pam` is the only CGO dependency. Build requires `gcc` and `linux-pam-dev`.
+> All other packages (including SQLite) are pure Go.
+
+## Dashboard pages
+
+| Page | Features |
+|---|---|
+| Login | PAM auth with system Linux users |
+| Dashboard | CPU/memory/disk/uptime, PPPoE WAN status, connected devices (ARP + DHCP merged), live SSE |
+| DHCP | Active leases, static reservations CRUD, DHCP range config, dnsmasq reload |
+| DNS | Upstream servers, local A records, DNS test lookup |
+| Network | All interfaces (IP/MAC/MTU/state/RX/TX), routing table, ARP table, conntrack stats |
+| Firewall | UI rule viewer (from kernel) + per-file raw editor for `/etc/firewall.d/*.sh` |
+| Port Forwarding | Structured port forward CRUD (reads/writes `50-portforward.sh`, apply to reload) |
+| Bandwidth | Real-time Chart.js graphs for `ppp0` + `lan` via SSE |
+| Logs | Live-streaming `/var/log/messages` with category filter (firewall/DHCP/PPPoE/system) + search |
+| Wake-on-LAN | Saved device list, send magic packet to any LAN device |
 
 ## Development
 
 ### Requirements
 
 - Go 1.25+
+- `gcc` and `libpam-dev` (macOS: included in Xcode CLT; Alpine: `apk add linux-pam-dev gcc`)
 - [`air`](https://github.com/air-verse/air) for hot reload: `go install github.com/air-verse/air@latest`
+- [bun](https://bun.sh) — manages all frontend dependencies (Tailwind, HTMX, Chart.js)
+
+### Build
+
+```bash
+make build
+```
+
+That's the only command needed. It runs in order:
+1. `bun install` — installs Tailwind, HTMX, Chart.js, SSE ext
+2. `bunx tailwindcss` — compiles `web/static/input.css` → `web/static/vendor/tailwind.css`
+3. `cp` — copies JS libs from `node_modules/` → `web/static/vendor/`
+4. `go build` — embeds `vendor/` into the binary → `./bin/srouter`
 
 ### Run with hot reload
 
@@ -30,13 +61,7 @@ Web dashboard for managing an Alpine Linux software router running as a VM in Pr
 make dev
 ```
 
-Watches `.go`, `.toml`, `.html`, `.css`, and `.js` files. Rebuilds and restarts on change.
-
-### Build
-
-```bash
-make build        # outputs to ./bin/srouter
-```
+Watches `.go`, `.toml`, `.html`, `.css`, `.js`. Rebuilds and restarts on change. Uses `./tmp/data.db` as the dev database.
 
 ### Test
 
@@ -45,15 +70,9 @@ make test         # all tests
 make test-race    # with race detector
 ```
 
-### Lint
-
-```bash
-make lint         # requires golangci-lint
-```
-
 ## Configuration
 
-The server looks for `/etc/srouter/config.toml`. If the file does not exist, defaults are used. Environment variables prefixed with `SROUTER_` override any value from the config file.
+The server looks for `/etc/srouter/config.toml`. If the file does not exist, defaults are used. `SROUTER_*` env vars override any TOML value (derived from the field's toml tag: `db_path` → `SROUTER_DB_PATH`).
 
 ```toml
 port    = ":8080"
@@ -66,21 +85,26 @@ db_path = "/var/lib/srouter/data.db"
 | `SROUTER_PORT` | `port` | `:8080` |
 | `SROUTER_DB_PATH` | `db_path` | `/var/lib/srouter/data.db` |
 
-For local development you can skip the config file entirely and use env vars:
-
-```bash
-SROUTER_PORT=:9090 SROUTER_DB_PATH=/tmp/srouter.db make dev
-```
-
 ## Production setup (Alpine Linux)
 
-### 1. Build on your development machine
+### 1. Install build dependencies
+
+```bash
+# On your build machine:
+apk add gcc linux-pam-dev musl-dev   # Alpine
+# or: brew install gcc                # macOS (libpam is already present)
+
+# Install bun (one-time):
+curl -fsSL https://bun.sh/install | bash
+```
+
+### 2. Build
 
 ```bash
 GOOS=linux GOARCH=amd64 make build
 ```
 
-### 2. Install on the router
+### 3. Install on the router
 
 ```bash
 scp bin/srouter root@192.168.0.1:/usr/local/bin/srouter
@@ -90,25 +114,21 @@ ssh root@192.168.0.1
 On the router:
 
 ```bash
-# PAM is the only native dependency
+# Runtime PAM dependency
 apk add linux-pam
 
-# Create data directory
-mkdir -p /var/lib/srouter
-
-# Create config
-mkdir -p /etc/srouter
+# Create data directory and config
+mkdir -p /var/lib/srouter /etc/srouter
 cat > /etc/srouter/config.toml <<EOF
 port    = ":8080"
 db_path = "/var/lib/srouter/data.db"
 EOF
 ```
 
-### 3. OpenRC service
-
-Create `/etc/init.d/srouter`:
+### 4. OpenRC service
 
 ```sh
+# /etc/init.d/srouter
 #!/sbin/openrc-run
 
 command="/usr/local/bin/srouter"
@@ -129,29 +149,36 @@ rc-update add srouter default
 rc-service srouter start
 ```
 
-Dashboard will be available at `http://192.168.0.1:8080`.
+Dashboard available at `http://192.168.0.1:8080`. Login with any Linux system user.
 
 ## Project layout
 
 ```
-cmd/main.go               — entry point: wires deps, starts server
+cmd/main.go               — entry point: wires all deps, starts HTTP server
 internal/
-  config/                 — TOML config loader
-  db/                     — SQLite open + goose migrations
-  handler/                — HTTP handlers (one file per subsystem)
-  middleware/             — PAM auth middleware
-  migrations/             — SQL migration files + embed
-  system/                 — shell/file access for router subsystems
+  config/                 — TOML config loader with SROUTER_* env overrides
+  db/                     — SQLite open + goose auto-migration
+  env/                    — config path from SROUTER_CONFIG_PATH
+  handler/                — HTTP handlers, one file per page
+  logging/                — slog setup + GetLogger(name) helper
+  middleware/             — PAM session auth middleware
+  migrations/             — SQL files embedded in binary
+  session/                — session CRUD on SQLite (24h TTL)
+  system/                 — shell/file access for all router subsystems
 web/
-  static/                 — CSS, JS
-  templates/              — HTML templates
+  embed.go                — //go:embed for templates + static
+  render.go               — MustParsePage, RenderPartial helpers
+  static/vendor/          — htmx.min.js, sse.js, chart.min.js, tailwind.css (gitignored)
+  templates/              — layout.html, per-page templates, partials/
 ```
 
-## Router subsystems
+## Router subsystems reference
 
 | Subsystem | Config on router | Reload |
 |---|---|---|
-| DHCP/DNS | `/etc/dnsmasq.conf`, `/etc/dnsmasq.d/*.conf` | `rc-service dnsmasq restart` |
-| Firewall | `/etc/firewall.sh` | `/etc/firewall.sh` |
+| DHCP/DNS | `/etc/dnsmasq.conf`, `/etc/dnsmasq.d/reservas.conf` | `rc-service dnsmasq reload` |
+| Firewall | `/etc/firewall.sh` (orchestrator), `/etc/firewall.d/*.sh` (rules) | `/etc/firewall.sh` |
+| Port Forwarding | `/etc/firewall.d/50-portforward.sh` | `/etc/firewall.sh` |
 | PPPoE | `/etc/ppp/peers/provider` | `rc-service pppoe restart` |
 | Interfaces | `/etc/network/interfaces` | `rc-service networking restart` |
+| Logs | `/var/log/messages` | — |

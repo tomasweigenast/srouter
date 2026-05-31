@@ -1,10 +1,13 @@
-BINARY   := srouter
-CMD      := ./cmd
+BINARY    := srouter
+CMD       := ./cmd
 BUILD_DIR := ./bin
+VENDOR    := web/static/vendor
 
-.PHONY: build dev test lint clean
+export CGO_ENABLED=1
 
-build:
+.PHONY: build dev test test-race lint clean assets css copy-assets install
+
+build: install assets
 	go build -o $(BUILD_DIR)/$(BINARY) $(CMD)
 
 dev:
@@ -20,4 +23,19 @@ lint:
 	golangci-lint run ./...
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) tmp $(VENDOR)
+
+install:
+	bun install
+
+assets: css copy-assets
+
+css:
+	mkdir -p $(VENDOR)
+	bunx tailwindcss -i web/static/input.css -o $(VENDOR)/tailwind.css --minify
+
+copy-assets:
+	mkdir -p $(VENDOR)
+	cp node_modules/htmx.org/dist/htmx.min.js      $(VENDOR)/htmx.min.js
+	cp node_modules/htmx-ext-sse/sse.js             $(VENDOR)/sse.js
+	cp node_modules/chart.js/dist/chart.umd.min.js  $(VENDOR)/chart.min.js

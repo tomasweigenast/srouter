@@ -1,0 +1,30 @@
+{{template "layout.html" .}}
+
+{{define "title"}}Dashboard — srouter{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-semibold text-white">Dashboard</h1>
+    <span class="text-xs text-gray-500" id="last-updated">Live</span>
+  </div>
+
+  {{/* ── Live stats via SSE ──────────────────────────────────────── */}}
+  <div hx-ext="sse" sse-connect="/events/dashboard">
+
+    {{/* Stats cards */}}
+    <div id="stats-cards" sse-swap="stats" hx-swap="innerHTML">
+      {{template "dashboard_stats" .Stats}}
+    </div>
+
+    {{/* Connected devices */}}
+    <div class="mt-6">
+      <h2 class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">Connected Devices</h2>
+      <div id="devices-table" sse-swap="devices" hx-swap="innerHTML">
+        {{template "dashboard_devices" .Devices}}
+      </div>
+    </div>
+
+  </div>
+</div>
+{{end}}

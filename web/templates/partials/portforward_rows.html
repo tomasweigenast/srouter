@@ -1,0 +1,22 @@
+{{define "portforward_rows"}}
+{{range .}}
+<tr class="hover:bg-gray-800/50 transition-colors">
+  <td class="px-4 py-3 text-gray-300 font-medium">{{.Name}}</td>
+  <td class="px-4 py-3">
+    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                 {{if eq .Protocol "tcp"}}bg-blue-900 text-blue-300{{else}}bg-purple-900 text-purple-300{{end}}">
+      {{.Protocol}}
+    </span>
+  </td>
+  <td class="px-4 py-3 mono text-gray-300">{{.ExtPort}}</td>
+  <td class="px-4 py-3 mono text-gray-400">{{.IntIP}}:{{.IntPort}}</td>
+  <td class="px-4 py-3 text-right">
+    <button hx-delete="/portforward/{{.Name}}"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            hx-confirm="Delete port forward '{{.Name}}'?"
+            class="text-xs text-red-400 hover:text-red-300 transition-colors">Delete</button>
+  </td>
+</tr>
+{{end}}
+{{end}}

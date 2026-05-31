@@ -15,11 +15,14 @@ Router details:
 ## Commands
 
 ```bash
-go build ./...          # build
-go test ./...           # all tests
-go test -run TestName ./pkg/...   # single test
-go test -race ./...     # race detection
-go vet ./...            # static analysis
+CGO_ENABLED=1 go build ./...    # build (CGO required for PAM)
+make build                       # build + compile Tailwind CSS
+make dev                         # hot reload via air
+make download-assets             # download HTMX, Chart.js, SSE ext to web/static/vendor/
+make css                         # compile Tailwind CSS (requires tailwindcss CLI)
+go test ./...                    # all tests
+go test -run TestName ./...      # single test
+go test -race ./...              # race detection
 ```
 
 ## Architecture
@@ -27,22 +30,27 @@ go vet ./...            # static analysis
 **Flat architecture, manual dependency injection.**
 
 ```
-srouter/
-├── cmd/main.go             ← wire all dependencies, start HTTP server
-├── internal/
-│   ├── handler/            ← HTTP handlers; parse request, render template
-│   │   ├── dashboard.go
-│   │   ├── dhcp.go
-│   │   └── firewall.go
-│   └── system/             ← system access: shell commands, file I/O
-│       ├── dnsmasq.go
-│       ├── iptables.go
-│       └── pppoe.go
-└── web/
-    └── templates/          ← HTML templates
+cmd/main.go               — wire all deps, start HTTP server, launch background workers
+internal/
+  config/                 — TOML config + SROUTER_* env overrides (reflection-based)
+  db/                     — SQLite open + goose migrations
+  env/                    — config path helper
+  handler/                — HTTP handlers; one struct per page, Routes() chi.Router method
+  logging/                — GetLogger(name) returns *slog.Logger with source attribute
+  middleware/             — RequireAuth(db) session cookie middleware
+  migrations/             — *.sql files embedded via //go:embed
+  session/                — session CRUD on SQLite (Create/Get/Delete/CleanupLoop)
+  system/                 — all router subsystem access (file I/O, exec, /proc reads)
+web/
+  embed.go                — //go:embed + FuncMap (navItem, mb, gb, uptimeFmt)
+  render.go               — MustParsePage, MustParseStandalone, RenderPartial, Render
+  static/vendor/          — htmx.min.js, sse.js, chart.min.js, tailwind.css (gitignored)
+  templates/layout.html   — sidebar nav, loads vendor assets
+  templates/*.html        — one file per page
+  templates/partials/     — HTMX-swapped fragments, SSE fragments
 ```
 
-Dependencies are passed as constructor arguments — no DI library. All wiring happens in `cmd/main.go`. Handlers call `system/` packages directly; no service layer unless a handler needs to orchestrate multiple system calls in non-trivial ways.
+All wiring in `cmd/main.go`. Handlers call `system/` directly. Background workers (`Broadcaster`, `LogBroadcaster`) are started in `main` and injected into handlers that need them.
 
 ## Storage
 
@@ -57,7 +65,21 @@ import (
 db, err := sql.Open("sqlite", "/var/lib/srouter/data.db")
 ```
 
-Schema migrations with `github.com/pressly/goose/v3`. SQL migration files live in `migrations/`. Run `goose.Up(db, "migrations")` on startup.
+Schema migrations with `github.com/pressly/goose/v3`. SQL migration files live in `internal/migrations/`, embedded in the binary, and run automatically on startup via `internal/db.Open()`.
+
+### Tables
+
+| Table | Migration | Purpose |
+|---|---|---|
+| `sessions` | `001_initial.sql` | Authenticated dashboard sessions. UUID v4 PK, stores `username` (Linux PAM user) and `expires_at` (Unix timestamp). `CleanupLoop` purges expired rows hourly. |
+| `wol_devices` | `002_wol_devices.sql` | Saved LAN devices for Wake-on-LAN. Stores `name` (display label), `mac` (colon-separated, unique), and optional `ip` (display hint only — the magic packet always goes to broadcast `255.255.255.255:9`). |
+
+### Key Go types
+
+| Type | Package | Maps to |
+|---|---|---|
+| `session.Session` | `internal/session` | `sessions` table |
+| `system.WoLDevice` | `internal/system` | `wol_devices` table |
 
 ## Configuration
 
@@ -108,6 +130,28 @@ logger.Error("iptables rule failed", "rule", rule, "err", err)
 ```
 
 Do not call `slog.SetDefault` or construct `slog.Handler` anywhere outside `internal/logging`.
+
+## Frontend patterns
+
+**No CDN.** All JS/CSS assets are vendor-local in `web/static/vendor/` (gitignored, populated by `make download-assets` + `make css`). Templates reference them as `/static/vendor/...`.
+
+**HTMX CRUD (partial swap):**
+```html
+<form hx-post="/dhcp/reservations" hx-target="#list" hx-swap="beforeend">
+<button hx-delete="/dhcp/reservations/{{.MAC}}" hx-target="closest tr" hx-swap="outerHTML">
+```
+
+**SSE named events (dashboard stats, devices):**
+```html
+<div hx-ext="sse" sse-connect="/events/dashboard">
+  <div id="stats" sse-swap="stats" hx-swap="innerHTML">...</div>
+</div>
+```
+Server: `fmt.Fprintf(w, "event: stats\ndata: %s\n\n", html)` + `flusher.Flush()`.
+
+**SSE to JS (bandwidth charts):** The `bwdata` SSE event carries JSON, not HTML. A JS listener on `sse:bwdata` calls into Chart.js. See `bandwidth.html`.
+
+**SSE append (logs):** `hx-swap="beforeend"` on the log lines container, connected to `/logs/events?category=...&search=...`.
 
 ## README maintenance
 

@@ -1,0 +1,53 @@
+{{define "firewall_rules"}}
+{{if .}}
+<div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
+        <th class="px-4 py-3 text-left">Chain</th>
+        <th class="px-4 py-3 text-left">Action</th>
+        <th class="px-4 py-3 text-left">Proto</th>
+        <th class="px-4 py-3 text-left">Source</th>
+        <th class="px-4 py-3 text-left">Destination</th>
+        <th class="px-4 py-3 text-left">Port</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-800">
+      {{range .}}
+      <tr class="hover:bg-gray-800/50">
+        <td class="px-4 py-2.5 text-xs text-gray-500">{{.Chain}}</td>
+        <td class="px-4 py-2.5">
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                       {{if eq .Action "ACCEPT"}}bg-emerald-900 text-emerald-300
+                       {{else if eq .Action "DROP"}}bg-red-900 text-red-300
+                       {{else}}bg-gray-800 text-gray-400{{end}}">
+            {{.Action}}
+          </span>
+        </td>
+        <td class="px-4 py-2.5 mono text-gray-400 text-xs">{{.Protocol}}</td>
+        <td class="px-4 py-2.5 mono text-gray-400 text-xs">{{if .SrcIP}}{{.SrcIP}}{{else}}any{{end}}</td>
+        <td class="px-4 py-2.5 mono text-gray-400 text-xs">{{if .DstIP}}{{.DstIP}}{{else}}any{{end}}</td>
+        <td class="px-4 py-2.5 mono text-gray-400 text-xs">{{if .DstPort}}{{.DstPort}}{{else}}—{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="bg-gray-900 border border-gray-800 rounded-xl px-6 py-8 text-center text-gray-600 text-sm">No rules loaded.</div>
+{{end}}
+{{end}}
+
+{{define "firewall_raw_editor"}}
+<form hx-post="/firewall/script" hx-target="#save-result" hx-swap="innerHTML" class="space-y-3">
+  <input type="hidden" name="filename" value="{{.Name}}">
+  <p class="text-xs text-gray-500 mono">{{.Path}}</p>
+  <textarea name="content" rows="24"
+            class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm mono text-gray-300
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">{{.Content}}</textarea>
+  <div class="flex items-center justify-end gap-3">
+    <span id="save-result" class="text-sm"></span>
+    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">Save</button>
+  </div>
+</form>
+{{end}}
