@@ -42,12 +42,57 @@
 <form hx-post="/firewall/script" hx-target="#save-result" hx-swap="innerHTML" class="space-y-3">
   <input type="hidden" name="filename" value="{{.Name}}">
   <p class="text-xs text-gray-500 mono">{{.Path}}</p>
-  <textarea name="content" rows="24"
-            class="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm mono text-gray-300
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">{{.Content}}</textarea>
+  {{/* CodeMirror mounts here; hidden textarea holds value for form submit */}}
+  <textarea id="fw-content" name="content" style="display:none">{{.Content}}</textarea>
+  <div class="border border-gray-200 rounded-xl overflow-hidden"></div>
   <div class="flex items-center justify-end gap-3">
     <span id="save-result" class="text-sm"></span>
     <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">Save</button>
   </div>
 </form>
+{{end}}
+
+{{define "firewall_custom_rules"}}
+{{if .}}
+<div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
+        <th class="px-4 py-3 text-left">Chain</th>
+        <th class="px-4 py-3 text-left">Action</th>
+        <th class="px-4 py-3 text-left">Proto</th>
+        <th class="px-4 py-3 text-left">Source</th>
+        <th class="px-4 py-3 text-left">Port</th>
+        <th class="px-4 py-3 w-16"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {{range $i, $r := .}}
+      <tr class="hover:bg-gray-100/50">
+        <td class="px-4 py-2.5 text-xs text-gray-500">{{$r.Chain}}</td>
+        <td class="px-4 py-2.5">
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                       {{if eq $r.Action "ACCEPT"}}bg-emerald-100 text-emerald-700
+                       {{else if eq $r.Action "DROP"}}bg-red-100 text-red-700
+                       {{else}}bg-orange-100 text-orange-700{{end}}">
+            {{$r.Action}}
+          </span>
+        </td>
+        <td class="px-4 py-2.5 mono text-gray-600 text-xs">{{if $r.Protocol}}{{$r.Protocol}}{{else}}all{{end}}</td>
+        <td class="px-4 py-2.5 mono text-gray-600 text-xs">{{if $r.SrcIP}}{{$r.SrcIP}}{{else}}any{{end}}</td>
+        <td class="px-4 py-2.5 mono text-gray-600 text-xs">{{if $r.DstPort}}{{$r.DstPort}}{{else}}—{{end}}</td>
+        <td class="px-4 py-2.5 text-right">
+          <button hx-delete="/firewall/rules/{{$i}}"
+                  hx-target="closest tr" hx-swap="outerHTML"
+                  hx-confirm="Delete this rule?"
+                  class="text-xs text-red-400 hover:text-red-300">Delete</button>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="bg-white border border-gray-200 rounded-xl px-6 py-6 text-center text-gray-500 text-sm">No custom rules. Add one below.</div>
+{{end}}
 {{end}}

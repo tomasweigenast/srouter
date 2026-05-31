@@ -13,6 +13,7 @@ const (
 	firewallScript  = "/etc/firewall.sh"
 	firewallDDir    = "/etc/firewall.d"
 	portForwardFile = "/etc/firewall.d/50-portforward.sh"
+	customRulesFile = "/etc/firewall.d/99-custom.sh"
 )
 
 type FirewallRule struct {
@@ -235,6 +236,125 @@ func DeletePortForwardRule(name string) error {
 	f.Close()
 
 	return os.WriteFile(portForwardFile, []byte(strings.Join(lines, "\n")+"\n"), 0755)
+}
+
+// GetCustomRules parses iptables commands from 99-custom.sh into FirewallRule slice.
+// Each line must match: iptables -A CHAIN ... -j ACTION
+func GetCustomRules() ([]FirewallRule, error) {
+	data, err := os.ReadFile(customRulesFile)
+	if os.IsNotExist(err) {
+		return []FirewallRule{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read custom rules: %w", err)
+	}
+	var rules []FirewallRule
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "iptables") {
+			continue
+		}
+		r := parseIPTablesLine(line)
+		if r.Chain != "" {
+			rules = append(rules, r)
+		}
+	}
+	return rules, nil
+}
+
+func AddCustomRule(r FirewallRule) error {
+	cmd := buildIPTablesCommand(r)
+	if cmd == "" {
+		return fmt.Errorf("invalid rule")
+	}
+	// Ensure file exists with shebang
+	if _, err := os.Stat(customRulesFile); os.IsNotExist(err) {
+		if err := os.WriteFile(customRulesFile, []byte("#!/bin/sh\n"), 0755); err != nil {
+			return fmt.Errorf("create custom rules file: %w", err)
+		}
+	}
+	f, err := os.OpenFile(customRulesFile, os.O_APPEND|os.O_WRONLY, 0755)
+	if err != nil {
+		return fmt.Errorf("open custom rules: %w", err)
+	}
+	defer f.Close()
+	_, err = fmt.Fprintf(f, "%s\n", cmd)
+	return err
+}
+
+func DeleteCustomRule(index int) error {
+	data, err := os.ReadFile(customRulesFile)
+	if err != nil {
+		return fmt.Errorf("read custom rules: %w", err)
+	}
+	var keep []string
+	ruleIdx := 0
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "iptables") {
+			if ruleIdx != index {
+				keep = append(keep, line)
+			}
+			ruleIdx++
+		} else {
+			keep = append(keep, line)
+		}
+	}
+	return os.WriteFile(customRulesFile, []byte(strings.Join(keep, "\n")+"\n"), 0755)
+}
+
+func parseIPTablesLine(line string) FirewallRule {
+	r := FirewallRule{}
+	fields := strings.Fields(line)
+	for i, f := range fields {
+		switch f {
+		case "-A", "-I":
+			if i+1 < len(fields) {
+				r.Chain = fields[i+1]
+			}
+		case "-p":
+			if i+1 < len(fields) {
+				r.Protocol = fields[i+1]
+			}
+		case "-s":
+			if i+1 < len(fields) {
+				r.SrcIP = fields[i+1]
+			}
+		case "-d":
+			if i+1 < len(fields) {
+				r.DstIP = fields[i+1]
+			}
+		case "--dport":
+			if i+1 < len(fields) {
+				r.DstPort = fields[i+1]
+			}
+		case "-j":
+			if i+1 < len(fields) {
+				r.Action = fields[i+1]
+			}
+		}
+	}
+	return r
+}
+
+func buildIPTablesCommand(r FirewallRule) string {
+	if r.Chain == "" || r.Action == "" {
+		return ""
+	}
+	cmd := fmt.Sprintf("iptables -A %s", r.Chain)
+	if r.Protocol != "" && r.Protocol != "all" {
+		cmd += " -p " + r.Protocol
+	}
+	if r.SrcIP != "" {
+		cmd += " -s " + r.SrcIP
+	}
+	if r.DstIP != "" {
+		cmd += " -d " + r.DstIP
+	}
+	if r.DstPort != "" {
+		cmd += " --dport " + r.DstPort
+	}
+	cmd += " -j " + r.Action
+	return cmd
 }
 
 func validateFirewallFileName(name string) error {

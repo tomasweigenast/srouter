@@ -44,6 +44,9 @@ func (RealSystem) GetRulesFromKernel() ([]FirewallRule, error)                 {
 func (RealSystem) GetPortForwardRules() ([]PortForwardRule, error)             { return GetPortForwardRules() }
 func (RealSystem) AddPortForwardRule(r PortForwardRule) error                  { return AddPortForwardRule(r) }
 func (RealSystem) DeletePortForwardRule(name string) error                     { return DeletePortForwardRule(name) }
+func (RealSystem) GetCustomRules() ([]FirewallRule, error)                     { return GetCustomRules() }
+func (RealSystem) AddCustomRule(r FirewallRule) error                          { return AddCustomRule(r) }
+func (RealSystem) DeleteCustomRule(index int) error                            { return DeleteCustomRule(index) }
 
 // WoL
 func (RealSystem) SendMagicPacket(mac string) error { return SendMagicPacket(mac) }

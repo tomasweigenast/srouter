@@ -212,6 +212,20 @@ func (MockSystem) DeletePortForwardRule(name string) error {
 	return nil
 }
 
+func (MockSystem) GetCustomRules() ([]FirewallRule, error) {
+	return []FirewallRule{
+		{Chain: "INPUT", Protocol: "tcp", DstPort: "8080", Action: "ACCEPT"},
+	}, nil
+}
+func (MockSystem) AddCustomRule(r FirewallRule) error {
+	slog.Info("[mock] AddCustomRule", "chain", r.Chain, "action", r.Action)
+	return nil
+}
+func (MockSystem) DeleteCustomRule(index int) error {
+	slog.Info("[mock] DeleteCustomRule", "index", index)
+	return nil
+}
+
 // ── WoL ──────────────────────────────────────────────────────────────────
 
 func (MockSystem) SendMagicPacket(mac string) error {
@@ -275,7 +289,8 @@ func (m *MockLogStream) Stop() {
 	}
 }
 
-// MockBandwidthStream emits fake rx/tx samples with realistic variation.
+// MockBandwidthStream emits fake rx/tx samples simulating realistic traffic:
+// smooth baseline with occasional download/upload bursts.
 type MockBandwidthStream struct{}
 
 func (MockBandwidthStream) Subscribe() (<-chan BandwidthSample, func()) {
@@ -283,24 +298,44 @@ func (MockBandwidthStream) Subscribe() (<-chan BandwidthSample, func()) {
 	stop := make(chan struct{})
 
 	go func() {
-		bases := map[string][2]float64{
-			"ppp0": {45000, 12000},
-			"lan":  {120000, 80000},
+		// Smoothed current values per interface
+		state := map[string][2]float64{
+			"ppp0": {20000, 5000},
+			"lan":  {50000, 30000},
 		}
+		// Burst targets: occasionally spike to simulate a download or upload
+		burstTick := 0
 		for {
 			select {
 			case <-stop:
 				close(ch)
 				return
-			case <-time.After(time.Second):
+			case <-time.After(500 * time.Millisecond):
+				burstTick++
 				ts := time.Now().UnixMilli()
-				for iface, b := range bases {
+
+				// Every ~8 ticks (4s) chance of a burst
+				var burstRx, burstTx float64
+				if burstTick%8 == 0 {
+					burstRx = rand.Float64() * 800000 // up to ~800 KB/s download spike
+					burstTx = rand.Float64() * 150000
+				}
+
+				for iface, s := range state {
+					// Exponential smoothing toward a slowly drifting base + burst
+					baseRx := 15000 + rand.Float64()*30000 + burstRx
+					baseTx := 3000 + rand.Float64()*15000 + burstTx
+					// α=0.3: fast enough to be visible, slow enough to look smooth
+					newRx := s[0]*0.7 + baseRx*0.3
+					newTx := s[1]*0.7 + baseTx*0.3
+					state[iface] = [2]float64{newRx, newTx}
+
 					select {
 					case ch <- BandwidthSample{
 						Timestamp: ts,
 						Iface:     iface,
-						RxBps:     b[0] + rand.Float64()*10000 - 5000,
-						TxBps:     b[1] + rand.Float64()*5000 - 2500,
+						RxBps:     newRx,
+						TxBps:     newTx,
 					}:
 					default:
 					}

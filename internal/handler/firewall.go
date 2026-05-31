@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
@@ -31,16 +33,20 @@ func (h *FirewallHandler) Routes() chi.Router {
 	r.Get("/script", h.getScript)
 	r.Post("/script", h.saveScript)
 	r.Post("/apply", h.apply)
+	// Custom rules (UI mode)
+	r.Post("/rules", h.addCustomRule)
+	r.Delete("/rules/{index}", h.deleteCustomRule)
 	return r
 }
 
 type firewallPage struct {
-	ActivePage      string
-	Username        string
-	Mode            string // "ui" | "raw"
-	Rules           []system.FirewallRule
-	Files           []system.FirewallFile
-	SelectedFile    system.FirewallFile
+	ActivePage   string
+	Username     string
+	Mode         string // "ui" | "raw"
+	Rules        []system.FirewallRule
+	CustomRules  []system.FirewallRule
+	Files        []system.FirewallFile
+	SelectedFile system.FirewallFile
 }
 
 func (h *FirewallHandler) show(w http.ResponseWriter, r *http.Request) {
@@ -58,10 +64,10 @@ func (h *FirewallHandler) show(w http.ResponseWriter, r *http.Request) {
 
 	if mode == "ui" {
 		page.Rules, _ = h.fw.GetRulesFromKernel()
+		page.CustomRules, _ = h.fw.GetCustomRules()
 	} else {
 		files, _ := h.fw.GetFirewallFiles()
 		page.Files = files
-		// Select the file from query param, default to first
 		selectedName := r.URL.Query().Get("file")
 		if selectedName == "" && len(files) > 0 {
 			page.SelectedFile = files[0]
@@ -72,7 +78,6 @@ func (h *FirewallHandler) show(w http.ResponseWriter, r *http.Request) {
 					break
 				}
 			}
-			// If not found, default to first
 			if page.SelectedFile.Name == "" && len(files) > 0 {
 				page.SelectedFile = files[0]
 			}
@@ -97,25 +102,63 @@ func (h *FirewallHandler) getScript(w http.ResponseWriter, r *http.Request) {
 func (h *FirewallHandler) saveScript(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("filename")
 	content := r.FormValue("content")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.fw.SaveFirewallScript(name, content); err != nil {
 		slog.Error("save firewall file", "name", name, "err", err)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<span class="text-red-400 text-sm">` + err.Error() + `</span>`))
+		fmt.Fprintf(w, `<span class="text-red-500 text-sm">%s</span>`, err.Error())
 		return
 	}
 	slog.Info("firewall file saved", "name", name)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`<span class="text-emerald-400 text-sm">Saved.</span>`))
+	fmt.Fprintf(w, `<span class="text-emerald-600 text-sm">Saved.</span>`)
 }
 
 func (h *FirewallHandler) apply(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.fw.ApplyFirewall(); err != nil {
 		slog.Error("apply firewall", "err", err)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<span class="text-red-400 text-sm">Failed: ` + err.Error() + `</span>`))
+		fmt.Fprintf(w, `<span class="text-red-500 text-sm">Failed: %s</span>`, err.Error())
 		return
 	}
 	slog.Info("firewall applied")
+	fmt.Fprintf(w, `<span class="text-emerald-600 text-sm">Applied successfully.</span>`)
+}
+
+func (h *FirewallHandler) addCustomRule(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	rule := system.FirewallRule{
+		Chain:    r.FormValue("chain"),
+		Protocol: r.FormValue("protocol"),
+		SrcIP:    r.FormValue("src_ip"),
+		DstPort:  r.FormValue("dst_port"),
+		Action:   r.FormValue("action"),
+	}
+	if rule.Chain == "" || rule.Action == "" {
+		writeHTMXInlineError(w, "Chain and Action are required.")
+		return
+	}
+	if err := h.fw.AddCustomRule(rule); err != nil {
+		slog.Error("add custom rule", "err", err)
+		writeHTMXInlineError(w, "Failed to add rule.")
+		return
+	}
+	rules, _ := h.fw.GetCustomRules()
+	html, _ := web.RenderPartial(h.tmpl, "firewall_custom_rules", rules)
+	w.Header().Set("HX-Retarget", "#custom-rules-list")
+	w.Header().Set("HX-Reswap", "innerHTML")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`<span class="text-emerald-400 text-sm">Firewall applied successfully.</span>`))
+	w.Write([]byte(html))
+}
+
+func (h *FirewallHandler) deleteCustomRule(w http.ResponseWriter, r *http.Request) {
+	idx, err := strconv.Atoi(chi.URLParam(r, "index"))
+	if err != nil {
+		http.Error(w, "invalid index", http.StatusBadRequest)
+		return
+	}
+	if err := h.fw.DeleteCustomRule(idx); err != nil {
+		slog.Error("delete custom rule", "index", idx, "err", err)
+		http.Error(w, "failed", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

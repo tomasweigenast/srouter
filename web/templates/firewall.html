@@ -6,37 +6,82 @@
   <div class="flex items-center justify-between">
     <h1 class="text-xl font-semibold text-gray-900">Firewall</h1>
     <div class="flex gap-2">
-      <a href="/firewall?mode=ui"
-         class="text-xs px-3 py-1.5 rounded-md transition-colors {{if eq .Mode "ui"}}bg-blue-600 text-gray-900{{else}}bg-gray-100 text-gray-600 hover:text-gray-900{{end}}">
+      <a href="/firewall?mode=ui" id="mode-ui-link"
+         class="text-xs px-3 py-1.5 rounded-md transition-colors {{if eq .Mode "ui"}}bg-blue-600 text-white{{else}}bg-gray-100 text-gray-600 hover:text-gray-900{{end}}">
         UI Rules
       </a>
-      <a href="/firewall?mode=raw"
-         class="text-xs px-3 py-1.5 rounded-md transition-colors {{if eq .Mode "raw"}}bg-blue-600 text-gray-900{{else}}bg-gray-100 text-gray-600 hover:text-gray-900{{end}}">
+      <a href="/firewall?mode=raw" id="mode-raw-link"
+         class="text-xs px-3 py-1.5 rounded-md transition-colors {{if eq .Mode "raw"}}bg-blue-600 text-white{{else}}bg-gray-100 text-gray-600 hover:text-gray-900{{end}}">
         Raw Editor
       </a>
     </div>
   </div>
 
   {{if eq .Mode "ui"}}
-  {{/* ── UI Rules (from kernel) ──────────────────────────────── */}}
   <section class="space-y-3">
-    <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Active Rules (kernel)</h2>
+    <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Active Rules (kernel — read only)</h2>
     {{template "firewall_rules" .Rules}}
   </section>
 
-  {{else}}
-  {{/* ── Raw Editor — file list + editor ────────────────────── */}}
-  <div class="flex gap-4">
+  <section class="space-y-3">
+    <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Custom Rules
+      <span class="text-gray-400 font-normal normal-case ml-1">· /etc/firewall.d/99-custom.sh</span>
+    </h2>
+    <div id="custom-rules-list">
+      {{template "firewall_custom_rules" .CustomRules}}
+    </div>
+    <details class="bg-white border border-gray-200 rounded-xl">
+      <summary class="px-4 py-3 text-sm text-blue-400 cursor-pointer select-none hover:text-blue-300">+ Add custom rule</summary>
+      <form hx-post="/firewall/rules"
+            hx-target="#custom-rule-error" hx-swap="innerHTML"
+            hx-on::after-request="if(event.detail.successful) this.reset()"
+            class="px-4 pb-4 grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">Chain</label>
+          <select name="chain" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option>INPUT</option><option>FORWARD</option><option>OUTPUT</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">Protocol</label>
+          <select name="protocol" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="tcp">tcp</option><option value="udp">udp</option><option value="all">all</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">Source IP</label>
+          <input type="text" name="src_ip" placeholder="0.0.0.0/0"
+                 class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">Dest. Port</label>
+          <input type="text" name="dst_port" placeholder="22"
+                 class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">Action</label>
+          <select name="action" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option>ACCEPT</option><option>DROP</option><option>REJECT</option>
+          </select>
+        </div>
+        <div class="col-span-2 sm:col-span-5 flex items-center justify-between">
+          <span id="custom-rule-error" class="text-xs"></span>
+          <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">Add Rule</button>
+        </div>
+      </form>
+    </details>
+  </section>
 
-    {{/* File list sidebar */}}
-    <div class="w-52 shrink-0 space-y-1">
+  {{else}}
+  <div class="flex gap-4 flex-col md:flex-row">
+    <div class="w-full md:w-52 shrink-0 space-y-1">
       <p class="text-xs text-gray-600 uppercase tracking-wider px-1 mb-2">/etc/firewall.d/</p>
       {{range .Files}}
       <button hx-get="/firewall/script?file={{.Name}}"
               hx-target="#raw-editor-area"
               hx-swap="innerHTML"
               class="w-full text-left px-3 py-2 rounded-md text-sm mono transition-colors
-                     {{if eq .Name $.SelectedFile.Name}}bg-blue-600 text-gray-900{{else}}text-gray-600 hover:bg-gray-100 hover:text-gray-900{{end}}">
+                     {{if eq .Name $.SelectedFile.Name}}bg-blue-600 text-white{{else}}text-gray-600 hover:bg-gray-100 hover:text-gray-900{{end}}">
         {{.Name}}
       </button>
       {{end}}
@@ -44,8 +89,6 @@
       <p class="text-xs text-gray-600 px-1">/etc/firewall.d/ not found</p>
       {{end}}
     </div>
-
-    {{/* Editor area */}}
     <div id="raw-editor-area" class="flex-1">
       {{if .SelectedFile.Name}}
       {{template "firewall_raw_editor" .SelectedFile}}
@@ -53,7 +96,6 @@
       <p class="text-gray-600 text-sm">Select a file to edit.</p>
       {{end}}
     </div>
-
   </div>
   {{end}}
 
@@ -63,7 +105,54 @@
       Apply Firewall
     </button>
     <span id="apply-result" class="text-sm"></span>
-    <span class="text-xs text-gray-600">Runs /etc/firewall.sh which loads all firewall.d/ scripts</span>
+    <span class="text-xs text-gray-500">Runs /etc/firewall.sh · loads all firewall.d/ scripts</span>
   </div>
 </div>
+{{end}}
+
+{{define "scripts"}}
+{{if eq .Mode "raw"}}
+<link rel="stylesheet" href="/static/vendor/codemirror.css">
+<link rel="stylesheet" href="/static/vendor/codemirror-monokai.css">
+<script src="/static/vendor/codemirror.js"></script>
+<script src="/static/vendor/codemirror-shell.js"></script>
+<script>
+let cmEditor = null;
+let dirty = false;
+
+function initCodeMirror() {
+  const ta = document.getElementById('fw-content');
+  if (!ta || cmEditor) return;
+  const wrapper = document.createElement('div');
+  ta.parentNode.insertBefore(wrapper, ta);
+  cmEditor = CodeMirror(wrapper, {
+    value: ta.value,
+    mode: 'shell',
+    theme: 'monokai',
+    lineNumbers: true,
+    tabSize: 2,
+    indentWithTabs: false,
+    extraKeys: { Tab: cm => cm.replaceSelection('  ') }
+  });
+  cmEditor.setSize('100%', '420px');
+  cmEditor.on('change', () => { dirty = true; });
+  window.cmEditor = cmEditor;
+  ta.closest('form')?.addEventListener('submit', () => { ta.value = cmEditor.getValue(); });
+}
+
+document.addEventListener('DOMContentLoaded', initCodeMirror);
+document.addEventListener('htmx:afterSwap', e => {
+  if (e.detail.target.id === 'raw-editor-area') {
+    cmEditor = null; dirty = false; initCodeMirror();
+  }
+});
+
+['mode-ui-link','mode-raw-link'].forEach(id => {
+  document.getElementById(id)?.addEventListener('click', e => {
+    if (dirty && !confirm('Unsaved changes will be lost. Continue?')) e.preventDefault();
+  });
+});
+window.onbeforeunload = () => dirty ? '' : undefined;
+</script>
+{{end}}
 {{end}}

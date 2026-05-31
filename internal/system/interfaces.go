@@ -49,6 +49,10 @@ type Firewall interface {
 	GetPortForwardRules() ([]PortForwardRule, error)
 	AddPortForwardRule(PortForwardRule) error
 	DeletePortForwardRule(name string) error
+	// Custom rules backed by /etc/firewall.d/99-custom.sh
+	GetCustomRules() ([]FirewallRule, error)
+	AddCustomRule(FirewallRule) error
+	DeleteCustomRule(index int) error
 }
 
 // WoL sends Wake-on-LAN magic packets to LAN devices.

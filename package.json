@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "chart.js": "^4.5.1",
+    "codemirror": "5",
     "htmx-ext-sse": "^2.2.4",
     "htmx.org": "^2.0.10"
   },
