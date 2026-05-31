@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
@@ -59,33 +61,48 @@ func (h *DNSHandler) setUpstream(w http.ResponseWriter, r *http.Request) {
 	var servers []system.UpstreamServer
 	for _, addr := range r.Form["server"] {
 		if addr != "" {
-			servers = append(servers, system.UpstreamServer{Address: addr})
+			servers = append(servers, system.UpstreamServer{Address: strings.TrimSpace(addr)})
 		}
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.dns.SetUpstreamServers(servers); err != nil {
 		slog.Error("set upstream servers", "err", err)
-		http.Error(w, "failed", http.StatusInternalServerError)
+		fmt.Fprintf(w, `<span class="text-red-500 text-sm">Failed to save.</span>`)
 		return
 	}
-	http.Redirect(w, r, "/dns", http.StatusFound)
+	fmt.Fprintf(w, `<span class="text-emerald-600 text-sm">Saved &amp; reloaded.</span>`)
 }
 
 func (h *DNSHandler) addEntry(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	entry := system.LocalEntry{
-		Hostname: r.FormValue("hostname"),
-		IP:       r.FormValue("ip"),
+		Hostname: strings.TrimSpace(r.FormValue("hostname")),
+		IP:       strings.TrimSpace(r.FormValue("ip")),
 	}
 	if entry.Hostname == "" || entry.IP == "" {
-		http.Error(w, "hostname and ip required", http.StatusBadRequest)
+		writeHTMXInlineError(w, "Hostname and IP are required.")
 		return
 	}
+
+	// Duplicate hostname check
+	existing, _ := h.dns.GetLocalEntries()
+	for _, e := range existing {
+		if strings.EqualFold(e.Hostname, entry.Hostname) {
+			writeHTMXInlineError(w, fmt.Sprintf("Hostname %q already exists.", entry.Hostname))
+			return
+		}
+	}
+
 	if err := h.dns.AddLocalEntry(entry); err != nil {
 		slog.Error("add local entry", "err", err)
-		http.Error(w, "failed", http.StatusInternalServerError)
+		writeHTMXInlineError(w, "Failed to add entry.")
 		return
 	}
 	_ = h.dns.Reload()
+
+	// On success, retarget to the entries table
+	w.Header().Set("HX-Retarget", "#dns-entries")
+	w.Header().Set("HX-Reswap", "beforeend")
 	html, _ := web.RenderPartial(h.tmpl, "dns_entry_row", entry)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
@@ -105,11 +122,10 @@ func (h *DNSHandler) deleteEntry(w http.ResponseWriter, r *http.Request) {
 func (h *DNSHandler) testLookup(w http.ResponseWriter, r *http.Request) {
 	hostname := r.FormValue("hostname")
 	result, err := h.dns.TestLookup(hostname)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err != nil {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<span class="text-red-400">` + err.Error() + `</span>`))
+		fmt.Fprintf(w, `<span class="text-red-400">%s</span>`, err.Error())
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`<span class="text-emerald-400 mono">` + result + `</span>`))
+	fmt.Fprintf(w, `<span class="text-emerald-600 mono">%s</span>`, result)
 }

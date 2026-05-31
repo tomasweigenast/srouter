@@ -8,7 +8,9 @@
   {{/* ── Upstream Servers ────────────────────────────────────────── */}}
   <section class="space-y-3">
     <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Upstream DNS Servers</h2>
-    <form hx-post="/dns/upstream" class="bg-white border border-gray-200 rounded-xl p-6 space-y-3">
+    <form hx-post="/dns/upstream"
+          hx-target="#upstream-result" hx-swap="innerHTML"
+          class="bg-white border border-gray-200 rounded-xl p-6 space-y-3">
       {{range .Upstream}}
       <div class="flex gap-2">
         <input type="text" name="server" value="{{.Address}}"
@@ -17,9 +19,10 @@
                 class="text-red-400 hover:text-red-300 px-2">✕</button>
       </div>
       {{end}}
-      <button type="button" onclick="addServerField()"
+      <button type="button" onclick="addServerField(this)"
               class="text-xs text-blue-400 hover:text-blue-300">+ Add server</button>
-      <div class="flex justify-end pt-2">
+      <div class="flex items-center justify-between pt-2">
+        <span id="upstream-result" class="text-sm"></span>
         <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">Save &amp; Reload</button>
       </div>
     </form>
@@ -44,8 +47,10 @@
     </div>
     <details class="bg-white border border-gray-200 rounded-xl">
       <summary class="px-4 py-3 text-sm text-blue-400 cursor-pointer select-none hover:text-blue-300">+ Add local entry</summary>
-      <form hx-post="/dns/entries" hx-target="#dns-entries" hx-swap="beforeend"
-            hx-on::after-request="this.reset()" class="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <form hx-post="/dns/entries"
+            hx-target="#dns-entry-error" hx-swap="innerHTML"
+            hx-on::after-request="if(event.detail.successful) this.reset()"
+            class="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="text-xs text-gray-500 block mb-1">Hostname</label>
           <input type="text" name="hostname" placeholder="myserver.local" required
@@ -56,7 +61,8 @@
           <input type="text" name="ip" placeholder="192.168.0.10" required
                  class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        <div class="col-span-2 flex justify-end">
+        <div class="col-span-2 flex items-center justify-between">
+          <span id="dns-entry-error" class="text-xs"></span>
           <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">Add Entry</button>
         </div>
       </form>
@@ -80,12 +86,13 @@
 
 {{block "scripts" .}}
 <script>
-function addServerField() {
+function addServerField(btn) {
   const div = document.createElement('div');
   div.className = 'flex gap-2';
   div.innerHTML = '<input type="text" name="server" class="flex-1 bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 mono focus:outline-none focus:ring-2 focus:ring-blue-500">' +
     '<button type="button" onclick="this.closest(\'.flex\').remove()" class="text-red-400 hover:text-red-300 px-2">✕</button>';
-  this.closest('form').querySelector('button[onclick]').before(div);
+  btn.before(div);
+  div.querySelector('input').focus();
 }
 </script>
 {{end}}

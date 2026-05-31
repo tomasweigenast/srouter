@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
@@ -72,20 +74,37 @@ func (h *DHCPHandler) leases(w http.ResponseWriter, r *http.Request) {
 func (h *DHCPHandler) addReservation(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	res := system.Reservation{
-		MAC:      r.FormValue("mac"),
-		IP:       r.FormValue("ip"),
-		Hostname: r.FormValue("hostname"),
+		MAC:      strings.ToLower(strings.TrimSpace(r.FormValue("mac"))),
+		IP:       strings.TrimSpace(r.FormValue("ip")),
+		Hostname: strings.TrimSpace(r.FormValue("hostname")),
 	}
 	if res.MAC == "" || res.IP == "" {
-		http.Error(w, "mac and ip are required", http.StatusBadRequest)
+		writeHTMXInlineError(w, "MAC address and IP are required.")
 		return
 	}
+
+	// Duplicate check
+	existing, _ := h.dhcp.GetReservations()
+	for _, e := range existing {
+		if strings.EqualFold(e.MAC, res.MAC) {
+			writeHTMXInlineError(w, fmt.Sprintf("MAC %s is already reserved (%s).", res.MAC, e.IP))
+			return
+		}
+		if e.IP == res.IP {
+			writeHTMXInlineError(w, fmt.Sprintf("IP %s is already reserved for %s.", res.IP, e.MAC))
+			return
+		}
+	}
+
 	if err := h.dhcp.AddReservation(res); err != nil {
 		slog.Error("add reservation", "err", err)
-		http.Error(w, "failed to add reservation", http.StatusInternalServerError)
+		writeHTMXInlineError(w, "Failed to add reservation.")
 		return
 	}
 	_ = h.dhcp.ReloadDNSMasq()
+	// On success, redirect the swap to the table body
+	w.Header().Set("HX-Retarget", "#reservations-list")
+	w.Header().Set("HX-Reswap", "beforeend")
 	html, _ := web.RenderPartial(h.tmpl, "dhcp_reservation_row", res)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
@@ -118,9 +137,17 @@ func (h *DHCPHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.dhcp.SaveDHCPConfig(cfg); err != nil {
 		slog.Error("save dhcp config", "err", err)
-		http.Error(w, "failed to save config", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`<span class="text-red-500 text-sm">Failed to save config.</span>`))
 		return
 	}
 	_ = h.dhcp.ReloadDNSMasq()
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(`<span class="text-emerald-600 text-sm">Saved &amp; reloaded.</span>`))
+}
+
+// writeHTMXInlineError writes an error message suitable for HTMX innerHTML swap.
+func writeHTMXInlineError(w http.ResponseWriter, msg string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, `<span class="text-red-500 text-xs">%s</span>`, msg)
 }
