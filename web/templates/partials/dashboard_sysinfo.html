@@ -1,0 +1,36 @@
+{{define "dashboard_sysinfo"}}
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+  <div>
+    <p class="text-xs text-gray-500 uppercase tracking-wider">Hostname</p>
+    <p class="text-sm font-medium text-gray-900 mono mt-0.5">{{.Hostname}}</p>
+  </div>
+  <div>
+    <p class="text-xs text-gray-500 uppercase tracking-wider">Kernel</p>
+    <p class="text-sm font-medium text-gray-900 mono mt-0.5">{{.Kernel}}</p>
+  </div>
+  <div>
+    <p class="text-xs text-gray-500 uppercase tracking-wider">Uptime</p>
+    <p class="text-sm font-medium text-gray-900 mt-0.5">{{.Uptime}}</p>
+  </div>
+  <div>
+    <p class="text-xs text-gray-500 uppercase tracking-wider">System Time</p>
+    <p class="text-sm font-medium text-gray-900 mono mt-0.5">{{.SystemTime}}</p>
+  </div>
+  <div>
+    <p class="text-xs text-gray-500 uppercase tracking-wider">NTP</p>
+    <div class="flex items-center gap-1.5 mt-0.5">
+      {{if .NTPSynced}}
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+      <span class="text-sm text-emerald-600">{{.NTPService}}</span>
+      {{else}}
+      <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+      <span class="text-sm text-gray-500">none</span>
+      {{end}}
+    </div>
+  </div>
+  <div>
+    <p class="text-xs text-gray-500 uppercase tracking-wider">srouter</p>
+    <p class="text-sm font-medium text-gray-900 mono mt-0.5">{{.AppVersion}}</p>
+  </div>
+</div>
+{{end}}

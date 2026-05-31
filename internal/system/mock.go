@@ -47,6 +47,29 @@ func (MockSystem) ReconnectPPPoE() error {
 	return nil
 }
 
+func (MockSystem) GetSystemInfo() (SystemInfo, error) {
+	return SystemInfo{
+		Hostname:   "router",
+		Kernel:     "6.15.0-0-edge",
+		Uptime:     "2d 4h 12m",
+		SystemTime: "2026-05-31 12:00:00 ART",
+		NTPSynced:  true,
+		NTPService: "openntpd",
+		AppVersion: AppVersion,
+	}, nil
+}
+
+func (MockSystem) GetRouterPackages() ([]RouterPackage, error) {
+	return []RouterPackage{
+		{Name: "dnsmasq", Version: "2.91-r0"},
+		{Name: "iptables", Version: "1.8.10-r3"},
+		{Name: "iproute2", Version: "6.9.0-r0"},
+		{Name: "ppp", Version: "2.5.0-r0"},
+		{Name: "openntpd", Version: "6.8p1-r7"},
+		{Name: "busybox", Version: "1.37.0-r9"},
+	}, nil
+}
+
 // ── DHCP ─────────────────────────────────────────────────────────────────
 
 func (MockSystem) GetLeases() ([]Lease, error) {

@@ -51,10 +51,12 @@ make build
 ```
 
 That's the only command needed. It runs in order:
-1. `bun install` — installs Tailwind, HTMX, Chart.js, SSE ext
+1. `bun install` — installs Tailwind, HTMX, Chart.js, SSE ext, CodeMirror 5
 2. `bunx tailwindcss` — compiles `web/static/input.css` → `web/static/vendor/tailwind.css`
-3. `cp` — copies JS libs from `node_modules/` → `web/static/vendor/`
-4. `go build` — embeds `vendor/` into the binary → `./bin/srouter`
+3. `cp` — copies JS/CSS libs from `node_modules/` → `web/static/vendor/`
+4. `go build -ldflags "-X ...AppVersion=$(git describe)"` — embeds `vendor/` → `./bin/srouter`
+
+The binary version shown in the dashboard is set automatically from `git describe --tags`.
 
 ### Develop on macOS (mock mode)
 

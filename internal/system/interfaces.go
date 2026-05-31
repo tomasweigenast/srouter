@@ -7,6 +7,8 @@ type Metrics interface {
 	GetDisks() ([]DiskInfo, error)
 	GetPPPoEStatus() (PPPoEStatus, error)
 	ReconnectPPPoE() error
+	GetSystemInfo() (SystemInfo, error)
+	GetRouterPackages() ([]RouterPackage, error)
 }
 
 // DHCP provides DHCP lease and reservation management via dnsmasq.

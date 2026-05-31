@@ -12,9 +12,16 @@
   {{/* ── Live stats via SSE ──────────────────────────────────────── */}}
   <div hx-ext="sse" sse-connect="/events/dashboard">
 
-    {{/* Stats cards */}}
+    {{/* Hardware stats cards */}}
     <div id="stats-cards" sse-swap="stats" hx-swap="innerHTML">
       {{template "dashboard_stats" .Stats}}
+    </div>
+
+    {{/* System info bar */}}
+    <div class="mt-4 bg-white border border-gray-200 rounded-xl p-4">
+      <div id="sysinfo-bar" sse-swap="sysinfo" hx-swap="innerHTML">
+        {{template "dashboard_sysinfo" .SysInfo}}
+      </div>
     </div>
 
     {{/* Connected devices */}}
@@ -26,5 +33,30 @@
     </div>
 
   </div>
+
+  {{/* ── Installed Router Packages (static, loaded once) ────────── */}}
+  {{if .Packages}}
+  <section class="space-y-3">
+    <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Router Software</h2>
+    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
+            <th class="px-4 py-3 text-left">Package</th>
+            <th class="px-4 py-3 text-left">Version</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {{range .Packages}}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2.5 mono text-gray-900">{{.Name}}</td>
+            <td class="px-4 py-2.5 mono text-gray-500">{{.Version}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {{end}}
 </div>
 {{end}}

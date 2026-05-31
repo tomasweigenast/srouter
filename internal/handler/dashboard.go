@@ -29,13 +29,16 @@ type dashboardPage struct {
 	Username   string
 	Stats      dashboardData
 	Devices    []Device
+	SysInfo    system.SystemInfo
+	Packages   []system.RouterPackage
 }
 
 type dashboardData struct {
-	CPU    system.CPUInfo
-	Memory system.MemInfo
-	Disks  []system.DiskInfo
-	PPPoE  system.PPPoEStatus
+	CPU      system.CPUInfo
+	Memory   system.MemInfo
+	Disks    []system.DiskInfo
+	PPPoE    system.PPPoEStatus
+	SysInfo  system.SystemInfo
 }
 
 type DashboardHandler struct {
@@ -65,11 +68,14 @@ func (h *DashboardHandler) Register(r chi.Router) {
 func (h *DashboardHandler) showDashboard(w http.ResponseWriter, r *http.Request) {
 	sess, _ := session.FromContext(r.Context())
 	data, devices := h.gatherData()
+	pkgs, _ := h.metrics.GetRouterPackages()
 	web.Render(w, h.tmpl, dashboardPage{
 		ActivePage: "dashboard",
 		Username:   sess.Username,
 		Stats:      data,
 		Devices:    devices,
+		SysInfo:    data.SysInfo,
+		Packages:   pkgs,
 	})
 }
 
@@ -102,8 +108,15 @@ func (h *DashboardHandler) sseDashboard(w http.ResponseWriter, r *http.Request) 
 				continue
 			}
 
+			sysinfoHTML, err := web.RenderSSE(h.tmpl, "dashboard_sysinfo", data.SysInfo)
+			if err != nil {
+				slog.Error("render dashboard_sysinfo", "err", err)
+				continue
+			}
+
 			fmt.Fprintf(w, "event: stats\ndata: %s\n\n", statsHTML)
 			fmt.Fprintf(w, "event: devices\ndata: %s\n\n", devicesHTML)
+			fmt.Fprintf(w, "event: sysinfo\ndata: %s\n\n", sysinfoHTML)
 			flusher.Flush()
 		}
 	}
@@ -114,6 +127,7 @@ func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
 	mem, _ := h.metrics.GetMemory()
 	disks, _ := h.metrics.GetDisks()
 	pppoe, _ := h.metrics.GetPPPoEStatus()
+	sysInfo, _ := h.metrics.GetSystemInfo()
 
 	leases, _ := h.dhcp.GetLeases()
 	arp, _ := h.net.GetARPTable()
@@ -132,5 +146,5 @@ func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
 		devices = append(devices, *d)
 	}
 
-	return dashboardData{CPU: cpu, Memory: mem, Disks: disks, PPPoE: pppoe}, devices
+	return dashboardData{CPU: cpu, Memory: mem, Disks: disks, PPPoE: pppoe, SysInfo: sysInfo}, devices
 }

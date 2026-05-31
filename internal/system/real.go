@@ -10,6 +10,8 @@ func (RealSystem) GetMemory() (MemInfo, error)         { return GetMemory() }
 func (RealSystem) GetDisks() ([]DiskInfo, error)       { return GetDisks() }
 func (RealSystem) GetPPPoEStatus() (PPPoEStatus, error) { return GetPPPoEStatus() }
 func (RealSystem) ReconnectPPPoE() error               { return ReconnectPPPoE() }
+func (RealSystem) GetSystemInfo() (SystemInfo, error)  { return GetSystemInfo() }
+func (RealSystem) GetRouterPackages() ([]RouterPackage, error) { return GetRouterPackages() }
 
 // DHCP
 func (RealSystem) GetLeases() ([]Lease, error)                { return GetLeases() }

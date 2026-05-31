@@ -7,8 +7,11 @@ export CGO_ENABLED=1
 
 .PHONY: build dev dev-mac test test-race lint clean assets css copy-assets install
 
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS := -X github.com/tomasweigenast/srouter/internal/system.AppVersion=$(VERSION)
+
 build: install assets
-	go build -o $(BUILD_DIR)/$(BINARY) $(CMD)
+	go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY) $(CMD)
 
 dev:
 	air
