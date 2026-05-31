@@ -1,0 +1,12 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/srouter ./cmd"
+full_bin = "SROUTER_DB_PATH=./tmp/data.db ./tmp/srouter"
+include_ext = ["go", "toml", "html", "css", "js"]
+exclude_dir = ["tmp", "bin", ".git"]
+delay = 500
+
+[log]
+time = false
