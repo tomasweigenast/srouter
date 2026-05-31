@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/samber/do/v2"
 
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
@@ -13,11 +14,15 @@ import (
 )
 
 type FirewallHandler struct {
+	fw   system.Firewall
 	tmpl *template.Template
 }
 
-func NewFirewallHandler() *FirewallHandler {
-	return &FirewallHandler{tmpl: web.MustParsePage("firewall")}
+func NewFirewallHandler(i do.Injector) (*FirewallHandler, error) {
+	return &FirewallHandler{
+		fw:   do.MustInvoke[system.Firewall](i),
+		tmpl: web.MustParsePage("firewall"),
+	}, nil
 }
 
 func (h *FirewallHandler) Routes() chi.Router {
@@ -52,9 +57,9 @@ func (h *FirewallHandler) show(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if mode == "ui" {
-		page.Rules, _ = system.GetRulesFromKernel()
+		page.Rules, _ = h.fw.GetRulesFromKernel()
 	} else {
-		files, _ := system.GetFirewallFiles()
+		files, _ := h.fw.GetFirewallFiles()
 		page.Files = files
 		// Select the file from query param, default to first
 		selectedName := r.URL.Query().Get("file")
@@ -79,7 +84,7 @@ func (h *FirewallHandler) show(w http.ResponseWriter, r *http.Request) {
 
 func (h *FirewallHandler) getScript(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("file")
-	file, err := system.GetFirewallFileContent(name)
+	file, err := h.fw.GetFirewallFileContent(name)
 	if err != nil {
 		http.Error(w, "failed to read file", http.StatusBadRequest)
 		return
@@ -92,7 +97,7 @@ func (h *FirewallHandler) getScript(w http.ResponseWriter, r *http.Request) {
 func (h *FirewallHandler) saveScript(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("filename")
 	content := r.FormValue("content")
-	if err := system.SaveFirewallScript(name, content); err != nil {
+	if err := h.fw.SaveFirewallScript(name, content); err != nil {
 		slog.Error("save firewall file", "name", name, "err", err)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(`<span class="text-red-400 text-sm">` + err.Error() + `</span>`))
@@ -104,7 +109,7 @@ func (h *FirewallHandler) saveScript(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *FirewallHandler) apply(w http.ResponseWriter, r *http.Request) {
-	if err := system.ApplyFirewall(); err != nil {
+	if err := h.fw.ApplyFirewall(); err != nil {
 		slog.Error("apply firewall", "err", err)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(`<span class="text-red-400 text-sm">Failed: ` + err.Error() + `</span>`))

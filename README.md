@@ -8,6 +8,7 @@ Web dashboard for managing an Alpine Linux software router running as a VM in Pr
 |---|---|
 | Language | Go 1.25 |
 | HTTP router | `go-chi/chi` v5 |
+| DI | `samber/do` v2 — interface-based, real vs mock chosen at startup |
 | Frontend | Go `html/template` + HTMX + Tailwind CSS v4 + Chart.js (all vendor-local, no CDN) |
 | Live data | Server-Sent Events (SSE) |
 | Database | SQLite via `modernc.org/sqlite` (pure Go, no CGO) |
@@ -55,13 +56,21 @@ That's the only command needed. It runs in order:
 3. `cp` — copies JS libs from `node_modules/` → `web/static/vendor/`
 4. `go build` — embeds `vendor/` into the binary → `./bin/srouter`
 
-### Run with hot reload
+### Develop on macOS (mock mode)
+
+All Linux-specific calls (`/proc`, `rc-service`, PAM, `/etc/dnsmasq.conf`) are replaced by realistic fake data. Login with any non-empty username/password.
 
 ```bash
-make dev
+make dev-mac    # SROUTER_DEV_MODE=true air
 ```
 
-Watches `.go`, `.toml`, `.html`, `.css`, `.js`. Rebuilds and restarts on change. Uses `./tmp/data.db` as the dev database.
+### Develop on Linux / router
+
+```bash
+make dev        # requires PAM + Linux /proc
+```
+
+Watches `.go`, `.toml`, `.html`, `.css`, `.js`. Rebuilds and restarts. Uses `./tmp/data.db`.
 
 ### Test
 
@@ -84,6 +93,10 @@ db_path = "/var/lib/srouter/data.db"
 | `SROUTER_CONFIG_PATH` | path to config file | `/etc/srouter/config.toml` |
 | `SROUTER_PORT` | `port` | `:8080` |
 | `SROUTER_DB_PATH` | `db_path` | `/var/lib/srouter/data.db` |
+| `SROUTER_DEV_MODE` | `dev_mode` | `false` |
+| `SROUTER_UPDATE_INTERVAL_MS` | `update_interval_ms` | `2000` |
+
+Setting `SROUTER_DEV_MODE=true` bypasses PAM auth (any username works) and replaces all router system calls with mock data — used with `make dev-mac` on macOS.
 
 ## Production setup (Alpine Linux)
 

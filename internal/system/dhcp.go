@@ -158,6 +158,30 @@ func GetDHCPConfig() (DHCPConfig, error) {
 	return cfg, nil
 }
 
+func SaveDHCPConfig(cfg DHCPConfig) error {
+	f, err := os.Open(dnsmasqConf)
+	if err != nil {
+		return fmt.Errorf("open dnsmasq.conf: %w", err)
+	}
+
+	var lines []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(strings.TrimSpace(line), "dhcp-range=") {
+			lines = append(lines, line)
+		}
+	}
+	f.Close()
+
+	leaseTime := cfg.LeaseTime
+	if leaseTime == "" {
+		leaseTime = "24h"
+	}
+	lines = append(lines, fmt.Sprintf("dhcp-range=%s,%s,%s", cfg.RangeStart, cfg.RangeEnd, leaseTime))
+	return os.WriteFile(dnsmasqConf, []byte(strings.Join(lines, "\n")+"\n"), 0644)
+}
+
 func ReloadDNSMasq() error {
 	if err := reloadService("dnsmasq"); err != nil {
 		return fmt.Errorf("reload dnsmasq: %w", err)

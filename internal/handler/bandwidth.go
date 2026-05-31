@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/samber/do/v2"
 
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
@@ -15,15 +16,15 @@ import (
 )
 
 type BandwidthHandler struct {
-	tmpl        *template.Template
-	broadcaster *system.Broadcaster
+	bw   system.BandwidthStream
+	tmpl *template.Template
 }
 
-func NewBandwidthHandler(b *system.Broadcaster) *BandwidthHandler {
+func NewBandwidthHandler(i do.Injector) (*BandwidthHandler, error) {
 	return &BandwidthHandler{
-		tmpl:        web.MustParsePage("bandwidth"),
-		broadcaster: b,
-	}
+		bw:   do.MustInvoke[system.BandwidthStream](i),
+		tmpl: web.MustParsePage("bandwidth"),
+	}, nil
 }
 
 func (h *BandwidthHandler) Routes() chi.Router {
@@ -47,18 +48,13 @@ func (h *BandwidthHandler) show(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BandwidthHandler) sseStream(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-
-	flusher, ok := w.(http.Flusher)
+	flusher, ok := sseHeaders(w)
 	if !ok {
 		http.Error(w, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
 
-	ch, unsub := h.broadcaster.Subscribe()
+	ch, unsub := h.bw.Subscribe()
 	defer unsub()
 
 	for {

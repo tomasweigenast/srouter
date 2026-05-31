@@ -5,13 +5,17 @@ VENDOR    := web/static/vendor
 
 export CGO_ENABLED=1
 
-.PHONY: build dev test test-race lint clean assets css copy-assets install
+.PHONY: build dev dev-mac test test-race lint clean assets css copy-assets install
 
 build: install assets
 	go build -o $(BUILD_DIR)/$(BINARY) $(CMD)
 
 dev:
 	air
+
+# macOS development: mock data, no PAM, no /proc required
+dev-mac:
+	SROUTER_DEV_MODE=true air
 
 test:
 	go test ./...

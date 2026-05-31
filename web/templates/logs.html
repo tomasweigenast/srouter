@@ -4,10 +4,10 @@
 {{define "content"}}
 <div class="space-y-4 h-full flex flex-col">
   <div class="flex items-center gap-3 flex-wrap">
-    <h1 class="text-xl font-semibold text-white">Logs</h1>
+    <h1 class="text-xl font-semibold text-gray-900">Logs</h1>
     <form class="flex gap-2 ml-auto" id="log-filter-form">
       <select name="category" onchange="reconnectSSE()"
-              class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              class="bg-gray-100 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
         <option value="" {{if eq .Filter.Category ""}}selected{{end}}>All categories</option>
         <option value="firewall" {{if eq .Filter.Category "firewall"}}selected{{end}}>Firewall</option>
         <option value="dhcp"     {{if eq .Filter.Category "dhcp"}}selected{{end}}>DHCP</option>
@@ -16,16 +16,16 @@
       </select>
       <input type="text" name="search" placeholder="Search…" value="{{.Filter.Search}}"
              oninput="debounceReconnect()"
-             class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-48">
+             class="bg-gray-100 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 w-48">
     </form>
     <button onclick="document.getElementById('log-lines').innerHTML = ''"
-            class="text-xs text-gray-500 hover:text-white transition-colors">Clear</button>
+            class="text-xs text-gray-500 hover:text-gray-900 transition-colors">Clear</button>
   </div>
 
   <div id="sse-container"
        hx-ext="sse"
        sse-connect="/logs/events?category={{.Filter.Category}}&search={{.Filter.Search}}"
-       class="flex-1 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+       class="flex-1 bg-white border border-gray-200 rounded-xl overflow-hidden">
     <div id="log-lines"
          sse-swap="logline"
          hx-swap="beforeend"

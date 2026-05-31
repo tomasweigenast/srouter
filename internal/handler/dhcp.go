@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/samber/do/v2"
 
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
@@ -13,11 +14,15 @@ import (
 )
 
 type DHCPHandler struct {
+	dhcp system.DHCP
 	tmpl *template.Template
 }
 
-func NewDHCPHandler() *DHCPHandler {
-	return &DHCPHandler{tmpl: web.MustParsePage("dhcp")}
+func NewDHCPHandler(i do.Injector) (*DHCPHandler, error) {
+	return &DHCPHandler{
+		dhcp: do.MustInvoke[system.DHCP](i),
+		tmpl: web.MustParsePage("dhcp"),
+	}, nil
 }
 
 func (h *DHCPHandler) Routes() chi.Router {
@@ -41,9 +46,9 @@ type dhcpPage struct {
 
 func (h *DHCPHandler) show(w http.ResponseWriter, r *http.Request) {
 	sess, _ := session.FromContext(r.Context())
-	leases, _ := system.GetLeases()
-	reservations, _ := system.GetReservations()
-	cfg, _ := system.GetDHCPConfig()
+	leases, _ := h.dhcp.GetLeases()
+	reservations, _ := h.dhcp.GetReservations()
+	cfg, _ := h.dhcp.GetDHCPConfig()
 	web.Render(w, h.tmpl, dhcpPage{
 		ActivePage:   "dhcp",
 		Username:     sess.Username,
@@ -54,7 +59,7 @@ func (h *DHCPHandler) show(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DHCPHandler) leases(w http.ResponseWriter, r *http.Request) {
-	leases, _ := system.GetLeases()
+	leases, _ := h.dhcp.GetLeases()
 	html, err := web.RenderPartial(h.tmpl, "dhcp_leases", leases)
 	if err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
@@ -75,12 +80,12 @@ func (h *DHCPHandler) addReservation(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "mac and ip are required", http.StatusBadRequest)
 		return
 	}
-	if err := system.AddReservation(res); err != nil {
+	if err := h.dhcp.AddReservation(res); err != nil {
 		slog.Error("add reservation", "err", err)
 		http.Error(w, "failed to add reservation", http.StatusInternalServerError)
 		return
 	}
-	_ = system.ReloadDNSMasq()
+	_ = h.dhcp.ReloadDNSMasq()
 	html, _ := web.RenderPartial(h.tmpl, "dhcp_reservation_row", res)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
@@ -88,17 +93,17 @@ func (h *DHCPHandler) addReservation(w http.ResponseWriter, r *http.Request) {
 
 func (h *DHCPHandler) deleteReservation(w http.ResponseWriter, r *http.Request) {
 	mac := chi.URLParam(r, "mac")
-	if err := system.DeleteReservation(mac); err != nil {
+	if err := h.dhcp.DeleteReservation(mac); err != nil {
 		slog.Error("delete reservation", "mac", mac, "err", err)
 		http.Error(w, "failed to delete reservation", http.StatusInternalServerError)
 		return
 	}
-	_ = system.ReloadDNSMasq()
+	_ = h.dhcp.ReloadDNSMasq()
 	w.WriteHeader(http.StatusOK)
 }
 
 func (h *DHCPHandler) getConfig(w http.ResponseWriter, r *http.Request) {
-	cfg, _ := system.GetDHCPConfig()
+	cfg, _ := h.dhcp.GetDHCPConfig()
 	html, _ := web.RenderPartial(h.tmpl, "dhcp_config_form", cfg)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
@@ -111,8 +116,11 @@ func (h *DHCPHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 		RangeEnd:   r.FormValue("range_end"),
 		LeaseTime:  r.FormValue("lease_time"),
 	}
-	// SaveDHCPConfig coming in a follow-up; for now just reload
-	_ = cfg
-	_ = system.ReloadDNSMasq()
+	if err := h.dhcp.SaveDHCPConfig(cfg); err != nil {
+		slog.Error("save dhcp config", "err", err)
+		http.Error(w, "failed to save config", http.StatusInternalServerError)
+		return
+	}
+	_ = h.dhcp.ReloadDNSMasq()
 	w.WriteHeader(http.StatusOK)
 }

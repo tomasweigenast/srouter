@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/samber/do/v2"
 
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
@@ -16,11 +17,16 @@ import (
 
 type WoLHandler struct {
 	db   *sql.DB
+	wol  system.WoL
 	tmpl *template.Template
 }
 
-func NewWoLHandler(db *sql.DB) *WoLHandler {
-	return &WoLHandler{db: db, tmpl: web.MustParsePage("wol")}
+func NewWoLHandler(i do.Injector) (*WoLHandler, error) {
+	return &WoLHandler{
+		db:   do.MustInvoke[*sql.DB](i),
+		wol:  do.MustInvoke[system.WoL](i),
+		tmpl: web.MustParsePage("wol"),
+	}, nil
 }
 
 func (h *WoLHandler) Routes() chi.Router {
@@ -103,7 +109,7 @@ func (h *WoLHandler) sendPacket(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "device not found", http.StatusNotFound)
 		return
 	}
-	if err := system.SendMagicPacket(mac); err != nil {
+	if err := h.wol.SendMagicPacket(mac); err != nil {
 		slog.Error("send magic packet", "mac", mac, "err", err)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(`<span class="text-red-400 text-xs">Failed: ` + err.Error() + `</span>`))

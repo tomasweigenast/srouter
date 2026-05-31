@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/samber/do/v2"
 
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
@@ -12,11 +13,15 @@ import (
 )
 
 type NetworkHandler struct {
+	net  system.Network
 	tmpl *template.Template
 }
 
-func NewNetworkHandler() *NetworkHandler {
-	return &NetworkHandler{tmpl: web.MustParsePage("network")}
+func NewNetworkHandler(i do.Injector) (*NetworkHandler, error) {
+	return &NetworkHandler{
+		net:  do.MustInvoke[system.Network](i),
+		tmpl: web.MustParsePage("network"),
+	}, nil
 }
 
 func (h *NetworkHandler) Routes() chi.Router {
@@ -48,10 +53,10 @@ func (h *NetworkHandler) refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NetworkHandler) buildPage(activePage, username string) networkPage {
-	ifaces, _ := system.GetInterfaces()
-	arp, _ := system.GetARPTable()
-	routes, _ := system.GetRoutes()
-	conntrack, _ := system.GetConntrackStats()
+	ifaces, _ := h.net.GetInterfaces()
+	arp, _ := h.net.GetARPTable()
+	routes, _ := h.net.GetRoutes()
+	conntrack, _ := h.net.GetConntrackStats()
 	return networkPage{
 		ActivePage: activePage,
 		Username:   username,

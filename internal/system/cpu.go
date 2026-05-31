@@ -9,10 +9,11 @@ import (
 )
 
 type CPUInfo struct {
-	LoadAvg1  float64
-	LoadAvg5  float64
-	LoadAvg15 float64
-	Cores     int
+	LoadAvg1   float64
+	LoadAvg5   float64
+	LoadAvg15  float64
+	Cores      int
+	UsedPercent float64 // LoadAvg1 / Cores * 100, capped at 100
 }
 
 func GetCPU() (CPUInfo, error) {
@@ -45,5 +46,8 @@ func GetCPU() (CPUInfo, error) {
 		}
 	}
 
+	if info.Cores > 0 {
+		info.UsedPercent = min(info.LoadAvg1/float64(info.Cores)*100, 100)
+	}
 	return info, nil
 }

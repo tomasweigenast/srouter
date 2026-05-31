@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/config"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
@@ -36,15 +38,23 @@ type dashboardData struct {
 	PPPoE  system.PPPoEStatus
 }
 
-// DashboardHandler handles the main dashboard page and its SSE feed.
 type DashboardHandler struct {
-	tmpl *template.Template
+	metrics  system.Metrics
+	dhcp     system.DHCP
+	net      system.Network
+	interval time.Duration
+	tmpl     *template.Template
 }
 
-func NewDashboardHandler() *DashboardHandler {
+func NewDashboardHandler(i do.Injector) (*DashboardHandler, error) {
+	cfg := do.MustInvoke[config.Config](i)
 	return &DashboardHandler{
-		tmpl: web.MustParsePage("dashboard"),
-	}
+		metrics:  do.MustInvoke[system.Metrics](i),
+		dhcp:     do.MustInvoke[system.DHCP](i),
+		net:      do.MustInvoke[system.Network](i),
+		interval: time.Duration(cfg.UpdateIntervalMs) * time.Millisecond,
+		tmpl:     web.MustParsePage("dashboard"),
+	}, nil
 }
 
 func (h *DashboardHandler) Register(r chi.Router) {
@@ -54,7 +64,7 @@ func (h *DashboardHandler) Register(r chi.Router) {
 
 func (h *DashboardHandler) showDashboard(w http.ResponseWriter, r *http.Request) {
 	sess, _ := session.FromContext(r.Context())
-	data, devices := gatherDashboardData()
+	data, devices := h.gatherData()
 	web.Render(w, h.tmpl, dashboardPage{
 		ActivePage: "dashboard",
 		Username:   sess.Username,
@@ -64,18 +74,13 @@ func (h *DashboardHandler) showDashboard(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *DashboardHandler) sseDashboard(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-
-	flusher, ok := w.(http.Flusher)
+	flusher, ok := sseHeaders(w)
 	if !ok {
 		http.Error(w, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(h.interval)
 	defer ticker.Stop()
 
 	for {
@@ -84,14 +89,14 @@ func (h *DashboardHandler) sseDashboard(w http.ResponseWriter, r *http.Request) 
 			slog.Debug("dashboard SSE client disconnected")
 			return
 		case <-ticker.C:
-			data, devices := gatherDashboardData()
+			data, devices := h.gatherData()
 
-			statsHTML, err := web.RenderPartial(h.tmpl, "dashboard_stats", data)
+			statsHTML, err := web.RenderSSE(h.tmpl, "dashboard_stats", data)
 			if err != nil {
 				slog.Error("render dashboard_stats", "err", err)
 				continue
 			}
-			devicesHTML, err := web.RenderPartial(h.tmpl, "dashboard_devices", devices)
+			devicesHTML, err := web.RenderSSE(h.tmpl, "dashboard_devices", devices)
 			if err != nil {
 				slog.Error("render dashboard_devices", "err", err)
 				continue
@@ -104,36 +109,28 @@ func (h *DashboardHandler) sseDashboard(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func gatherDashboardData() (dashboardData, []Device) {
-	cpu, _ := system.GetCPU()
-	mem, _ := system.GetMemory()
-	disks, _ := system.GetDisks()
-	pppoe, _ := system.GetPPPoEStatus()
+func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
+	cpu, _ := h.metrics.GetCPU()
+	mem, _ := h.metrics.GetMemory()
+	disks, _ := h.metrics.GetDisks()
+	pppoe, _ := h.metrics.GetPPPoEStatus()
 
-	data := dashboardData{CPU: cpu, Memory: mem, Disks: disks, PPPoE: pppoe}
-	devices := mergeDevices()
-	return data, devices
-}
-
-func mergeDevices() []Device {
-	leases, _ := system.GetLeases()
-	arp, _ := system.GetARPTable()
+	leases, _ := h.dhcp.GetLeases()
+	arp, _ := h.net.GetARPTable()
 
 	byMAC := map[string]*Device{}
-
 	for _, l := range leases {
-		d := &Device{IP: l.IP, MAC: l.MAC, Hostname: l.Hostname, Source: "dhcp"}
-		byMAC[l.MAC] = d
+		byMAC[l.MAC] = &Device{IP: l.IP, MAC: l.MAC, Hostname: l.Hostname, Source: "dhcp"}
 	}
 	for _, a := range arp {
 		if _, ok := byMAC[a.MAC]; !ok {
 			byMAC[a.MAC] = &Device{IP: a.IP, MAC: a.MAC, Source: "arp"}
 		}
 	}
-
 	devices := make([]Device, 0, len(byMAC))
 	for _, d := range byMAC {
 		devices = append(devices, *d)
 	}
-	return devices
+
+	return dashboardData{CPU: cpu, Memory: mem, Disks: disks, PPPoE: pppoe}, devices
 }

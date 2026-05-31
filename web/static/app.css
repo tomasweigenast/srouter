@@ -2,8 +2,8 @@
 
 /* Scrollbar styling for log viewer */
 .log-container::-webkit-scrollbar { width: 6px; }
-.log-container::-webkit-scrollbar-track { background: #1e293b; }
-.log-container::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+.log-container::-webkit-scrollbar-track { background: #f1f5f9; }
+.log-container::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
 
 /* Code / monospace areas */
 .mono { font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace; }

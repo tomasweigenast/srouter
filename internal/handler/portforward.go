@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/samber/do/v2"
 
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
@@ -13,11 +14,15 @@ import (
 )
 
 type PortForwardHandler struct {
+	fw   system.Firewall
 	tmpl *template.Template
 }
 
-func NewPortForwardHandler() *PortForwardHandler {
-	return &PortForwardHandler{tmpl: web.MustParsePage("portforward")}
+func NewPortForwardHandler(i do.Injector) (*PortForwardHandler, error) {
+	return &PortForwardHandler{
+		fw:   do.MustInvoke[system.Firewall](i),
+		tmpl: web.MustParsePage("portforward"),
+	}, nil
 }
 
 func (h *PortForwardHandler) Routes() chi.Router {
@@ -37,7 +42,7 @@ type portForwardPage struct {
 
 func (h *PortForwardHandler) show(w http.ResponseWriter, r *http.Request) {
 	sess, _ := session.FromContext(r.Context())
-	rules, _ := system.GetPortForwardRules()
+	rules, _ := h.fw.GetPortForwardRules()
 	web.Render(w, h.tmpl, portForwardPage{
 		ActivePage: "portforward",
 		Username:   sess.Username,
@@ -61,7 +66,7 @@ func (h *PortForwardHandler) add(w http.ResponseWriter, r *http.Request) {
 	if rule.IntPort == "" {
 		rule.IntPort = rule.ExtPort
 	}
-	if err := system.AddPortForwardRule(rule); err != nil {
+	if err := h.fw.AddPortForwardRule(rule); err != nil {
 		slog.Error("add port forward rule", "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
@@ -73,7 +78,7 @@ func (h *PortForwardHandler) add(w http.ResponseWriter, r *http.Request) {
 
 func (h *PortForwardHandler) delete(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
-	if err := system.DeletePortForwardRule(name); err != nil {
+	if err := h.fw.DeletePortForwardRule(name); err != nil {
 		slog.Error("delete port forward rule", "name", name, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
@@ -82,7 +87,7 @@ func (h *PortForwardHandler) delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PortForwardHandler) apply(w http.ResponseWriter, r *http.Request) {
-	if err := system.ApplyFirewall(); err != nil {
+	if err := h.fw.ApplyFirewall(); err != nil {
 		slog.Error("apply firewall (portforward)", "err", err)
 		http.Error(w, "failed to apply firewall", http.StatusInternalServerError)
 		return

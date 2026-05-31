@@ -1,13 +1,13 @@
 {{define "wol_device_row"}}
-<tr class="hover:bg-gray-800/50 transition-colors">
+<tr class="hover:bg-gray-100/50 transition-colors">
   <td class="px-4 py-3 text-gray-300 font-medium">{{.Name}}</td>
-  <td class="px-4 py-3 mono text-gray-400">{{.MAC}}</td>
+  <td class="px-4 py-3 mono text-gray-600">{{.MAC}}</td>
   <td class="px-4 py-3 mono text-gray-500">{{if .IP}}{{.IP}}{{else}}<span class="text-gray-700">—</span>{{end}}</td>
   <td class="px-4 py-3 text-right flex items-center gap-2 justify-end">
     <button hx-post="/wol/send/{{.ID}}"
             hx-target="closest td"
             hx-swap="innerHTML"
-            class="text-xs bg-emerald-800 hover:bg-emerald-700 text-emerald-200 px-2.5 py-1 rounded-md transition-colors">
+            class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-md transition-colors">
       Wake
     </button>
     <button hx-delete="/wol/devices/{{.ID}}"

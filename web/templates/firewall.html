@@ -4,14 +4,14 @@
 {{define "content"}}
 <div class="space-y-6">
   <div class="flex items-center justify-between">
-    <h1 class="text-xl font-semibold text-white">Firewall</h1>
+    <h1 class="text-xl font-semibold text-gray-900">Firewall</h1>
     <div class="flex gap-2">
       <a href="/firewall?mode=ui"
-         class="text-xs px-3 py-1.5 rounded-md transition-colors {{if eq .Mode "ui"}}bg-blue-600 text-white{{else}}bg-gray-800 text-gray-400 hover:text-white{{end}}">
+         class="text-xs px-3 py-1.5 rounded-md transition-colors {{if eq .Mode "ui"}}bg-blue-600 text-gray-900{{else}}bg-gray-100 text-gray-600 hover:text-gray-900{{end}}">
         UI Rules
       </a>
       <a href="/firewall?mode=raw"
-         class="text-xs px-3 py-1.5 rounded-md transition-colors {{if eq .Mode "raw"}}bg-blue-600 text-white{{else}}bg-gray-800 text-gray-400 hover:text-white{{end}}">
+         class="text-xs px-3 py-1.5 rounded-md transition-colors {{if eq .Mode "raw"}}bg-blue-600 text-gray-900{{else}}bg-gray-100 text-gray-600 hover:text-gray-900{{end}}">
         Raw Editor
       </a>
     </div>
@@ -20,7 +20,7 @@
   {{if eq .Mode "ui"}}
   {{/* ── UI Rules (from kernel) ──────────────────────────────── */}}
   <section class="space-y-3">
-    <h2 class="text-sm font-medium text-gray-400 uppercase tracking-wider">Active Rules (kernel)</h2>
+    <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Active Rules (kernel)</h2>
     {{template "firewall_rules" .Rules}}
   </section>
 
@@ -36,7 +36,7 @@
               hx-target="#raw-editor-area"
               hx-swap="innerHTML"
               class="w-full text-left px-3 py-2 rounded-md text-sm mono transition-colors
-                     {{if eq .Name $.SelectedFile.Name}}bg-blue-600 text-white{{else}}text-gray-400 hover:bg-gray-800 hover:text-white{{end}}">
+                     {{if eq .Name $.SelectedFile.Name}}bg-blue-600 text-gray-900{{else}}text-gray-600 hover:bg-gray-100 hover:text-gray-900{{end}}">
         {{.Name}}
       </button>
       {{end}}

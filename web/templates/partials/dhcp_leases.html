@@ -1,21 +1,21 @@
 {{define "dhcp_leases"}}
 <div id="leases-table">
 {{if .}}
-<div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+<div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
   <table class="w-full text-sm">
     <thead>
-      <tr class="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
+      <tr class="border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
         <th class="px-4 py-3 text-left">IP</th>
         <th class="px-4 py-3 text-left">MAC</th>
         <th class="px-4 py-3 text-left">Hostname</th>
         <th class="px-4 py-3 text-left">Expires</th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-gray-800">
+    <tbody class="divide-y divide-gray-100">
       {{range .}}
-      <tr class="hover:bg-gray-800/50 transition-colors">
+      <tr class="hover:bg-gray-100/50 transition-colors">
         <td class="px-4 py-3 mono text-blue-300">{{.IP}}</td>
-        <td class="px-4 py-3 mono text-gray-400">{{.MAC}}</td>
+        <td class="px-4 py-3 mono text-gray-600">{{.MAC}}</td>
         <td class="px-4 py-3 text-gray-300">{{if .Hostname}}{{.Hostname}}{{else}}<span class="text-gray-600">—</span>{{end}}</td>
         <td class="px-4 py-3 text-gray-500 text-xs">{{.Expiry.Format "2006-01-02 15:04"}}</td>
       </tr>
@@ -24,7 +24,7 @@
   </table>
 </div>
 {{else}}
-<div class="bg-gray-900 border border-gray-800 rounded-xl px-6 py-8 text-center text-gray-600 text-sm">No active leases.</div>
+<div class="bg-white border border-gray-200 rounded-xl px-6 py-8 text-center text-gray-600 text-sm">No active leases.</div>
 {{end}}
 </div>
 {{end}}

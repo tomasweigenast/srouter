@@ -1,19 +1,21 @@
 {{define "dashboard_stats"}}
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
   {{/* CPU */}}
-  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">CPU Load</p>
-    <p class="text-2xl font-semibold text-white">{{printf "%.2f" .CPU.LoadAvg1}}</p>
-    <p class="text-xs text-gray-500 mt-1">5m: {{printf "%.2f" .CPU.LoadAvg5}} · 15m: {{printf "%.2f" .CPU.LoadAvg15}}</p>
-    <p class="text-xs text-gray-600 mt-0.5">{{.CPU.Cores}} cores</p>
+  <div class="bg-white border border-gray-200 rounded-xl p-5">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">CPU</p>
+    <p class="text-2xl font-semibold text-gray-900">{{printf "%.0f" .CPU.UsedPercent}}<span class="text-sm text-gray-600">%</span></p>
+    <div class="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div class="h-full {{if gt .CPU.UsedPercent 80.0}}bg-red-500{{else}}bg-blue-500{{end}} rounded-full" style="width: {{printf "%.0f" .CPU.UsedPercent}}%"></div>
+    </div>
+    <p class="text-xs text-gray-500 mt-1">1m: {{printf "%.2f" .CPU.LoadAvg1}} · 5m: {{printf "%.2f" .CPU.LoadAvg5}} · 15m: {{printf "%.2f" .CPU.LoadAvg15}}</p>
   </div>
 
   {{/* Memory */}}
-  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+  <div class="bg-white border border-gray-200 rounded-xl p-5">
     <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Memory</p>
-    <p class="text-2xl font-semibold text-white">{{printf "%.0f" .Memory.UsedPercent}}<span class="text-sm text-gray-400">%</span></p>
-    <div class="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+    <p class="text-2xl font-semibold text-gray-900">{{printf "%.0f" .Memory.UsedPercent}}<span class="text-sm text-gray-600">%</span></p>
+    <div class="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
       <div class="h-full bg-blue-500 rounded-full" style="width: {{printf "%.0f" .Memory.UsedPercent}}%"></div>
     </div>
     <p class="text-xs text-gray-500 mt-1">{{mb .Memory.UsedKB}} / {{mb .Memory.TotalKB}} MB</p>
@@ -21,10 +23,10 @@
 
   {{/* Disk */}}
   {{range .Disks}}
-  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+  <div class="bg-white border border-gray-200 rounded-xl p-5">
     <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Disk <span class="text-gray-600">{{.Path}}</span></p>
-    <p class="text-2xl font-semibold text-white">{{printf "%.0f" .UsedPercent}}<span class="text-sm text-gray-400">%</span></p>
-    <div class="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+    <p class="text-2xl font-semibold text-gray-900">{{printf "%.0f" .UsedPercent}}<span class="text-sm text-gray-600">%</span></p>
+    <div class="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
       <div class="h-full {{if gt .UsedPercent 85.0}}bg-red-500{{else}}bg-emerald-500{{end}} rounded-full" style="width: {{printf "%.0f" .UsedPercent}}%"></div>
     </div>
     <p class="text-xs text-gray-500 mt-1">{{gb .FreeBytes}} GB free of {{gb .TotalBytes}} GB</p>
@@ -32,14 +34,14 @@
   {{end}}
 
   {{/* PPPoE / WAN */}}
-  <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+  <div class="bg-white border border-gray-200 rounded-xl p-5">
     <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">WAN / PPPoE</p>
     {{if .PPPoE.Connected}}
     <div class="flex items-center gap-2">
       <span class="w-2 h-2 rounded-full bg-emerald-400 status-dot-pulse"></span>
       <span class="text-sm font-medium text-emerald-400">Connected</span>
     </div>
-    <p class="text-xs text-gray-400 mt-1 mono">{{.PPPoE.PublicIP}}</p>
+    <p class="text-xs text-gray-600 mt-1 mono">{{.PPPoE.PublicIP}}</p>
     <p class="text-xs text-gray-600 mt-0.5">up {{uptimeFmt .PPPoE.UptimeSecs}}</p>
     {{else}}
     <div class="flex items-center gap-2">

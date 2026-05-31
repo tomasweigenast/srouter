@@ -5,7 +5,7 @@
 {{define "content"}}
 <div class="space-y-6">
   <div class="flex items-center justify-between">
-    <h1 class="text-xl font-semibold text-white">Dashboard</h1>
+    <h1 class="text-xl font-semibold text-gray-900">Dashboard</h1>
     <span class="text-xs text-gray-500" id="last-updated">Live</span>
   </div>
 
@@ -19,7 +19,7 @@
 
     {{/* Connected devices */}}
     <div class="mt-6">
-      <h2 class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">Connected Devices</h2>
+      <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider mb-3">Connected Devices</h2>
       <div id="devices-table" sse-swap="devices" hx-swap="innerHTML">
         {{template "dashboard_devices" .Devices}}
       </div>

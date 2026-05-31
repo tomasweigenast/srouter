@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strings"
 )
 
 // MustParsePage parses layout.html + <name>.html + all partials into one template set.
@@ -38,6 +39,17 @@ func RenderPartial(t *template.Template, name string, data any) (string, error) 
 		return "", fmt.Errorf("render partial %q: %w", name, err)
 	}
 	return buf.String(), nil
+}
+
+// RenderSSE renders a named template into a single-line string safe for the SSE
+// data: field. The SSE spec treats each newline as the end of a data field —
+// multi-line HTML must be collapsed before writing to the stream.
+func RenderSSE(t *template.Template, name string, data any) (string, error) {
+	html, err := RenderPartial(t, name, data)
+	if err != nil {
+		return "", err
+	}
+	return strings.ReplaceAll(html, "\n", ""), nil
 }
 
 // Render executes the root template (layout.html for pages, standalone for login)

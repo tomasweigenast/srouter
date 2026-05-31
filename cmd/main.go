@@ -10,6 +10,7 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/samber/do/v2"
 
 	"github.com/tomasweigenast/srouter/internal/config"
 	"github.com/tomasweigenast/srouter/internal/db"
@@ -38,30 +39,62 @@ func main() {
 	}
 	defer database.Close()
 
-	// Background workers
-	go session.CleanupLoop(database, time.Hour)
+	// ── DI container ────────────────────────────────────────────────────
+	i := do.New()
 
-	bwBroadcast := system.NewBroadcaster(time.Second)
-	defer bwBroadcast.Stop()
+	// Primitives
+	do.ProvideValue(i, cfg)
+	do.ProvideValue(i, database)
 
-	logBroadcast := system.NewLogBroadcaster("/var/log/messages")
-	defer logBroadcast.Stop()
+	// System interfaces — real or mock based on SROUTER_DEV_MODE
+	system.ProvideSystem(i, cfg.DevMode)
+
+	// SSE streams
+	do.Provide(i, func(i do.Injector) (system.LogStream, error) {
+		cfg := do.MustInvoke[config.Config](i)
+		if cfg.DevMode {
+			return system.NewMockLogStream(), nil
+		}
+		return system.NewLogBroadcaster("/var/log/messages"), nil
+	})
+	do.Provide(i, func(i do.Injector) (system.BandwidthStream, error) {
+		cfg := do.MustInvoke[config.Config](i)
+		interval := time.Duration(cfg.UpdateIntervalMs) * time.Millisecond
+		if cfg.DevMode {
+			return system.MockBandwidthStream{}, nil
+		}
+		return system.NewBroadcaster(interval), nil
+	})
 
 	// Handlers
-	authHandler := handler.NewAuthHandler(database)
-	dashboardHandler := handler.NewDashboardHandler()
-	dhcpHandler := handler.NewDHCPHandler()
-	dnsHandler := handler.NewDNSHandler()
-	networkHandler := handler.NewNetworkHandler()
-	firewallHandler := handler.NewFirewallHandler()
-	portForwardHandler := handler.NewPortForwardHandler()
-	logsHandler := handler.NewLogsHandler(logBroadcast)
-	bandwidthHandler := handler.NewBandwidthHandler(bwBroadcast)
-	wolHandler := handler.NewWoLHandler(database)
+	do.Provide(i, handler.NewAuthHandler)
+	do.Provide(i, handler.NewDashboardHandler)
+	do.Provide(i, handler.NewDHCPHandler)
+	do.Provide(i, handler.NewDNSHandler)
+	do.Provide(i, handler.NewNetworkHandler)
+	do.Provide(i, handler.NewFirewallHandler)
+	do.Provide(i, handler.NewPortForwardHandler)
+	do.Provide(i, handler.NewLogsHandler)
+	do.Provide(i, handler.NewBandwidthHandler)
+	do.Provide(i, handler.NewWoLHandler)
 
-	// Router
+	// ── Background workers ───────────────────────────────────────────────
+	go session.CleanupLoop(database, time.Hour)
+
+	// ── HTTP router ──────────────────────────────────────────────────────
 	r := chi.NewRouter()
 	r.Use(chimw.Recoverer)
+
+	authHandler      := do.MustInvoke[*handler.AuthHandler](i)
+	dashboardHandler := do.MustInvoke[*handler.DashboardHandler](i)
+	dhcpHandler      := do.MustInvoke[*handler.DHCPHandler](i)
+	dnsHandler       := do.MustInvoke[*handler.DNSHandler](i)
+	networkHandler   := do.MustInvoke[*handler.NetworkHandler](i)
+	firewallHandler  := do.MustInvoke[*handler.FirewallHandler](i)
+	pfHandler        := do.MustInvoke[*handler.PortForwardHandler](i)
+	logsHandler      := do.MustInvoke[*handler.LogsHandler](i)
+	bwHandler        := do.MustInvoke[*handler.BandwidthHandler](i)
+	wolHandler       := do.MustInvoke[*handler.WoLHandler](i)
 
 	// Public routes
 	authHandler.Register(r)
@@ -74,9 +107,9 @@ func main() {
 		r.Mount("/dns", dnsHandler.Routes())
 		r.Mount("/network", networkHandler.Routes())
 		r.Mount("/firewall", firewallHandler.Routes())
-		r.Mount("/portforward", portForwardHandler.Routes())
+		r.Mount("/portforward", pfHandler.Routes())
 		r.Mount("/logs", logsHandler.Routes())
-		r.Mount("/bandwidth", bandwidthHandler.Routes())
+		r.Mount("/bandwidth", bwHandler.Routes())
 		r.Mount("/wol", wolHandler.Routes())
 	})
 
@@ -89,6 +122,7 @@ func main() {
 		http.Redirect(w, r, "/dashboard", http.StatusFound)
 	})
 
+	// ── HTTP server ──────────────────────────────────────────────────────
 	srv := &http.Server{
 		Addr:         cfg.Port,
 		Handler:      r,
@@ -101,7 +135,7 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		logger.Info("server starting", "addr", cfg.Port)
+		logger.Info("server starting", "addr", cfg.Port, "dev", cfg.DevMode)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("server error", "err", err)
 			os.Exit(1)
@@ -117,4 +151,7 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Error("shutdown error", "err", err)
 	}
+
+	// Shut down SSE streams cleanly
+	_ = i.Shutdown()
 }

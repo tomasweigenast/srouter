@@ -4,7 +4,7 @@
 {{define "content"}}
 <div class="space-y-6">
   <div class="flex items-center justify-between">
-    <h1 class="text-xl font-semibold text-white">Port Forwarding</h1>
+    <h1 class="text-xl font-semibold text-gray-900">Port Forwarding</h1>
     <div class="flex items-center gap-3">
       <button hx-post="/portforward/apply" hx-target="#pf-apply-result" hx-swap="innerHTML"
               class="bg-amber-600 hover:bg-amber-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">
@@ -14,10 +14,11 @@
     </div>
   </div>
 
-  <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead>
-        <tr class="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
+        <tr class="border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
           <th class="px-4 py-3 text-left">Name</th>
           <th class="px-4 py-3 text-left">Protocol</th>
           <th class="px-4 py-3 text-left">Ext. Port</th>
@@ -25,24 +26,24 @@
           <th class="px-4 py-3 w-16"></th>
         </tr>
       </thead>
-      <tbody id="pf-rules" class="divide-y divide-gray-800">
+      <tbody id="pf-rules" class="divide-y divide-gray-100">
         {{template "portforward_rows" .Rules}}
       </tbody>
     </table>
   </div>
 
-  <details class="bg-gray-900 border border-gray-800 rounded-xl">
+  <details class="bg-white border border-gray-200 rounded-xl">
     <summary class="px-4 py-3 text-sm text-blue-400 cursor-pointer select-none hover:text-blue-300">+ Add port forward</summary>
     <form hx-post="/portforward" hx-target="#pf-rules" hx-swap="beforeend"
-          hx-on::after-request="this.reset()" class="px-4 pb-4 grid grid-cols-5 gap-3">
+          hx-on::after-request="this.reset()" class="px-4 pb-4 grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-3">
       <div>
         <label class="text-xs text-gray-500 block mb-1">Name</label>
         <input type="text" name="name" placeholder="minecraft" required
-               class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+               class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
       </div>
       <div>
         <label class="text-xs text-gray-500 block mb-1">Protocol</label>
-        <select name="protocol" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <select name="protocol" class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="tcp">TCP</option>
           <option value="udp">UDP</option>
         </select>
@@ -50,17 +51,17 @@
       <div>
         <label class="text-xs text-gray-500 block mb-1">Ext. Port</label>
         <input type="text" name="ext_port" placeholder="25565" required
-               class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+               class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
       </div>
       <div>
         <label class="text-xs text-gray-500 block mb-1">Internal IP</label>
         <input type="text" name="int_ip" placeholder="192.168.0.10" required
-               class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+               class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
       </div>
       <div>
         <label class="text-xs text-gray-500 block mb-1">Int. Port</label>
         <input type="text" name="int_port" placeholder="same as ext"
-               class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+               class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
       </div>
       <div class="col-span-5 flex justify-end">
         <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">Add Rule</button>

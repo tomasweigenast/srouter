@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/samber/do/v2"
 
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
@@ -13,11 +14,15 @@ import (
 )
 
 type DNSHandler struct {
+	dns  system.DNS
 	tmpl *template.Template
 }
 
-func NewDNSHandler() *DNSHandler {
-	return &DNSHandler{tmpl: web.MustParsePage("dns")}
+func NewDNSHandler(i do.Injector) (*DNSHandler, error) {
+	return &DNSHandler{
+		dns:  do.MustInvoke[system.DNS](i),
+		tmpl: web.MustParsePage("dns"),
+	}, nil
 }
 
 func (h *DNSHandler) Routes() chi.Router {
@@ -39,8 +44,8 @@ type dnsPage struct {
 
 func (h *DNSHandler) show(w http.ResponseWriter, r *http.Request) {
 	sess, _ := session.FromContext(r.Context())
-	upstream, _ := system.GetUpstreamServers()
-	entries, _ := system.GetLocalEntries()
+	upstream, _ := h.dns.GetUpstreamServers()
+	entries, _ := h.dns.GetLocalEntries()
 	web.Render(w, h.tmpl, dnsPage{
 		ActivePage: "dns",
 		Username:   sess.Username,
@@ -57,7 +62,7 @@ func (h *DNSHandler) setUpstream(w http.ResponseWriter, r *http.Request) {
 			servers = append(servers, system.UpstreamServer{Address: addr})
 		}
 	}
-	if err := system.SetUpstreamServers(servers); err != nil {
+	if err := h.dns.SetUpstreamServers(servers); err != nil {
 		slog.Error("set upstream servers", "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
@@ -75,12 +80,12 @@ func (h *DNSHandler) addEntry(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "hostname and ip required", http.StatusBadRequest)
 		return
 	}
-	if err := system.AddLocalEntry(entry); err != nil {
+	if err := h.dns.AddLocalEntry(entry); err != nil {
 		slog.Error("add local entry", "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
-	_ = system.ReloadDNSMasq()
+	_ = h.dns.Reload()
 	html, _ := web.RenderPartial(h.tmpl, "dns_entry_row", entry)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
@@ -88,18 +93,18 @@ func (h *DNSHandler) addEntry(w http.ResponseWriter, r *http.Request) {
 
 func (h *DNSHandler) deleteEntry(w http.ResponseWriter, r *http.Request) {
 	hostname := chi.URLParam(r, "hostname")
-	if err := system.DeleteLocalEntry(hostname); err != nil {
+	if err := h.dns.DeleteLocalEntry(hostname); err != nil {
 		slog.Error("delete local entry", "hostname", hostname, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
-	_ = system.ReloadDNSMasq()
+	_ = h.dns.Reload()
 	w.WriteHeader(http.StatusOK)
 }
 
 func (h *DNSHandler) testLookup(w http.ResponseWriter, r *http.Request) {
 	hostname := r.FormValue("hostname")
-	result, err := system.TestLookup(hostname)
+	result, err := h.dns.TestLookup(hostname)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(`<span class="text-red-400">` + err.Error() + `</span>`))

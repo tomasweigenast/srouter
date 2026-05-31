@@ -8,22 +8,28 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/samber/do/v2"
 	pam "github.com/msteinert/pam/v2"
 
+	"github.com/tomasweigenast/srouter/internal/config"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/web"
 )
 
 type AuthHandler struct {
 	db        *sql.DB
+	devMode   bool
 	loginTmpl *template.Template
 }
 
-func NewAuthHandler(db *sql.DB) *AuthHandler {
+func NewAuthHandler(i do.Injector) (*AuthHandler, error) {
+	cfg := do.MustInvoke[config.Config](i)
+	db  := do.MustInvoke[*sql.DB](i)
 	return &AuthHandler{
 		db:        db,
+		devMode:   cfg.DevMode,
 		loginTmpl: web.MustParseStandalone("login"),
-	}
+	}, nil
 }
 
 func (h *AuthHandler) Register(r chi.Router) {
@@ -44,10 +50,18 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
-	if err := pamAuthenticate(username, password); err != nil {
-		slog.Warn("login failed", "username", username, "err", err)
-		web.Render(w, h.loginTmpl, loginPage{Error: "Invalid username or password."})
-		return
+	if h.devMode {
+		if username == "" {
+			web.Render(w, h.loginTmpl, loginPage{Error: "Username required."})
+			return
+		}
+		slog.Info("[dev] login bypassed", "username", username)
+	} else {
+		if err := pamAuthenticate(username, password); err != nil {
+			slog.Warn("login failed", "username", username, "err", err)
+			web.Render(w, h.loginTmpl, loginPage{Error: "Invalid username or password."})
+			return
+		}
 	}
 
 	sess, err := session.Create(h.db, username)

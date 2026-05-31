@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/samber/do/v2"
 
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
@@ -14,15 +15,15 @@ import (
 )
 
 type LogsHandler struct {
-	tmpl        *template.Template
-	logBroadcast *system.LogBroadcaster
+	logs system.LogStream
+	tmpl *template.Template
 }
 
-func NewLogsHandler(lb *system.LogBroadcaster) *LogsHandler {
+func NewLogsHandler(i do.Injector) (*LogsHandler, error) {
 	return &LogsHandler{
-		tmpl:        web.MustParsePage("logs"),
-		logBroadcast: lb,
-	}
+		logs: do.MustInvoke[system.LogStream](i),
+		tmpl: web.MustParsePage("logs"),
+	}, nil
 }
 
 func (h *LogsHandler) Routes() chi.Router {
@@ -52,12 +53,7 @@ func (h *LogsHandler) show(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *LogsHandler) sseStream(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-
-	flusher, ok := w.(http.Flusher)
+	flusher, ok := sseHeaders(w)
 	if !ok {
 		http.Error(w, "streaming not supported", http.StatusInternalServerError)
 		return
@@ -68,7 +64,7 @@ func (h *LogsHandler) sseStream(w http.ResponseWriter, r *http.Request) {
 		Search:   r.URL.Query().Get("search"),
 	}
 
-	ch, unsub := h.logBroadcast.Subscribe(filter)
+	ch, unsub := h.logs.Subscribe(filter)
 	defer unsub()
 
 	for {
@@ -80,7 +76,7 @@ func (h *LogsHandler) sseStream(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
-			lineHTML, err := web.RenderPartial(h.tmpl, "log_line", line)
+			lineHTML, err := web.RenderSSE(h.tmpl, "log_line", line)
 			if err != nil {
 				continue
 			}
