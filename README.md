@@ -102,24 +102,35 @@ Setting `SROUTER_DEV_MODE=true` bypasses PAM auth (any username works) and repla
 
 ## Production setup (Alpine Linux)
 
-### 1. Install build dependencies
+### Build for Linux (from macOS, requires Docker)
 
 ```bash
-# On your build machine:
-apk add gcc linux-pam-dev musl-dev   # Alpine
-# or: brew install gcc                # macOS (libpam is already present)
-
-# Install bun (one-time):
-curl -fsSL https://bun.sh/install | bash
+make build-linux
 ```
 
-### 2. Build
+This runs a throwaway Alpine Linux Docker container that installs all build dependencies, compiles everything, and produces:
+- `bin/srouter-linux` — the binary
+- `bin/srouter-linux.tar.gz` — binary + `install.sh` bundled together
+
+Named Docker volumes (`srouter-gomod`, `srouter-npmcache`) cache Go modules and node packages between builds so subsequent runs are fast.
+
+### Install on the router
 
 ```bash
-GOOS=linux GOARCH=amd64 make build
+scp bin/srouter-linux.tar.gz root@192.168.0.1:~/
+ssh root@192.168.0.1 'tar xzf srouter-linux.tar.gz && sh install.sh'
 ```
 
-### 3. Install on the router
+`install.sh` handles everything: installs `linux-pam`, copies the binary, creates the config (if missing), registers and starts the OpenRC service.
+
+### Build + deploy in one command
+
+```bash
+make deploy                                    # deploys to root@192.168.0.1
+ROUTER_HOST=admin@192.168.1.1 make deploy     # custom host
+```
+
+### 3. Install on the router (manual alternative)
 
 ```bash
 scp bin/srouter root@192.168.0.1:/usr/local/bin/srouter
