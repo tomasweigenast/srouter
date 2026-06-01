@@ -2,6 +2,18 @@
 
 {{define "title"}}Dashboard — srouter{{end}}
 
+{{block "scripts" .}}
+<script>
+// Cancel the SSE devices swap while a tag form is open so the user can type
+document.addEventListener('htmx:beforeSwap', function(evt) {
+  if (evt.detail.target.id === 'devices-table' &&
+      document.querySelector('[id^="tag-form-"]:not(.hidden)')) {
+    evt.detail.shouldSwap = false;
+  }
+});
+</script>
+{{end}}
+
 {{define "content"}}
 <div class="space-y-6">
   <div class="flex items-center justify-between">
