@@ -1,9 +1,10 @@
 {{define "log_line"}}
-<div class="py-0.5 leading-relaxed
+<div class="log-line py-0.5 leading-relaxed
             {{if eq .Category "firewall"}}text-red-300
             {{else if eq .Category "dhcp"}}text-blue-300
             {{else if eq .Category "pppoe"}}text-yellow-300
-            {{else}}text-gray-600{{end}}">
+            {{else}}text-gray-600{{end}}"
+     data-category="{{.Category}}">
   <span class="text-gray-600 select-none">{{.Time}} </span>{{.Message}}
 </div>
 {{end}}

@@ -61,7 +61,7 @@ func (h *LogsHandler) sseStream(w http.ResponseWriter, r *http.Request) {
 
 	filter := system.LogFilter{
 		Category: r.URL.Query().Get("category"),
-		Search:   r.URL.Query().Get("search"),
+		// Search is applied client-side so existing lines can be filtered too
 	}
 
 	ch, unsub := h.logs.Subscribe(filter)

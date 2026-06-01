@@ -72,10 +72,14 @@ func (lb *LogBroadcaster) run() {
 	}
 	defer f.Close()
 
-	// Seek to end so we only tail new lines
-	f.Seek(0, io.SeekEnd)
+	// Seek back to show recent history on first connect (~last 100 lines)
+	const tailBytes = 32 * 1024
+	if _, err := f.Seek(-tailBytes, io.SeekEnd); err != nil {
+		f.Seek(0, io.SeekStart)
+	}
 
 	reader := bufio.NewReader(f)
+	reader.ReadString('\n') // discard partial first line at seek boundary
 	for {
 		select {
 		case <-lb.stopCh:
