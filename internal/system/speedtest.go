@@ -12,9 +12,9 @@ type SpeedMeasurement struct {
 	Err  string
 }
 
-// MeasureLatency pings 8.8.8.8 four times and returns average RTT in ms.
+// MeasureLatency pings 1.1.1.1 four times and returns average RTT in ms.
 func MeasureLatency() SpeedMeasurement {
-	out, err := exec.Command("ping", "-c", "4", "-q", "8.8.8.8").Output()
+	out, err := exec.Command("ping", "-c", "4", "-q", "1.1.1.1").Output()
 	if err != nil {
 		return SpeedMeasurement{Err: fmt.Sprintf("ping failed: %v", err)}
 	}
