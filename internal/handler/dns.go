@@ -38,7 +38,7 @@ func (h *DNSHandler) Routes() chi.Router {
 	r.Post("/entries", h.addEntry)
 	r.Delete("/entries/{hostname}", h.deleteEntry)
 	r.Post("/test", h.testLookup)
-	r.Get("/stats/events", h.statsSSE)
+	r.Get("/live", h.statsSSE)
 	return r
 }
 

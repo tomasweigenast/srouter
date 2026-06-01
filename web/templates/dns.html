@@ -154,7 +154,7 @@ try {
   });
 } catch(e) { console.warn('DNS chart unavailable:', e); }
 
-const dnsES = new EventSource('/dns/stats/events');
+const dnsES = new EventSource('/dns/live');
 dnsES.addEventListener('dnsstats', e => {
   const d = JSON.parse(e.data);
   document.getElementById('dns-total').textContent = d.TotalQueries.toLocaleString();
