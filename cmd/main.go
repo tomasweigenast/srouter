@@ -49,6 +49,9 @@ func main() {
 	// System interfaces — real or mock based on SROUTER_DEV_MODE
 	system.ProvideSystem(i, cfg.DevMode)
 
+	// Update checker
+	do.ProvideValue(i, system.NewUpdateChecker(cfg.DevMode))
+
 	// SSE streams
 	do.Provide(i, func(i do.Injector) (system.LogStream, error) {
 		cfg := do.MustInvoke[config.Config](i)
@@ -90,6 +93,7 @@ func main() {
 	// ── Background workers ───────────────────────────────────────────────
 	go session.CleanupLoop(database, time.Hour)
 	go system.RebootWatchLoop(database)
+	go system.UpdateCheckLoop(do.MustInvoke[*system.UpdateChecker](i), 6*time.Hour)
 
 	// ── HTTP router ──────────────────────────────────────────────────────
 	r := chi.NewRouter()

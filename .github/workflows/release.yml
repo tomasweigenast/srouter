@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install APT build deps
+        run: sudo apt-get install -y gcc libpam0g-dev
+
+      - name: Install frontend deps
+        run: bun install
+
+      - name: Build frontend assets
+        run: |
+          mkdir -p web/static/vendor
+          bunx tailwindcss -i web/static/input.css -o web/static/vendor/tailwind.css --minify
+          cp node_modules/chart.js/dist/chart.umd.min.js       web/static/vendor/chart.min.js
+          cp node_modules/codemirror/lib/codemirror.js          web/static/vendor/codemirror.js
+          cp node_modules/codemirror/lib/codemirror.css         web/static/vendor/codemirror.css
+          cp node_modules/codemirror/mode/shell/shell.js        web/static/vendor/codemirror-shell.js
+          cp node_modules/codemirror/theme/monokai.css          web/static/vendor/codemirror-monokai.css
+
+      - name: Build binary
+        env:
+          CGO_ENABLED: "1"
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          VERSION="${{ github.ref_name }}"
+          go build \
+            -ldflags "-X github.com/tomasweigenast/srouter/internal/system.AppVersion=${VERSION}" \
+            -o bin/srouter-linux \
+            ./cmd
+
+      - name: Package release archive
+        run: |
+          tar -czf bin/srouter-linux.tar.gz \
+            -C bin srouter-linux \
+            -C "${{ github.workspace }}/scripts" install.sh
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bin/srouter-linux
+            bin/srouter-linux.tar.gz
+          generate_release_notes: true

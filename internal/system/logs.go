@@ -31,7 +31,9 @@ type FirewallDropLog struct {
 	DstPort  string // DPT=
 }
 
-var fwTagRE = regexp.MustCompile(`\[([A-Za-z0-9_-]+):\s*\]`)
+// fwTagRE matches the iptables log-prefix before the mandatory IN= field,
+// e.g. "FW-INPUT-DROP:  IN=ppp0" or "MC-CONNECT:  IN=lan".
+var fwTagRE = regexp.MustCompile(`([A-Za-z][A-Za-z0-9_-]+):\s+IN=`)
 
 // ParseFirewallLog extracts structured netfilter fields from a firewall log line.
 // Returns (parsed, true) when the line matches the kernel log-prefix format.

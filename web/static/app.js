@@ -124,6 +124,25 @@ async function rebootNow(btn) {
   fetchToast(btn, 'POST', '/system/reboot');
 }
 
+// Trigger update install; polls for the service to come back up then reloads.
+async function installUpdate(btn) {
+  if (!await confirmModal('Install the update and restart the service?')) return;
+  const res = await request('POST', '/system/update/install', null, btn);
+  let msg = 'Installing…';
+  try { const d = await res.json(); if (d.message) msg = d.message; } catch {}
+  toast(msg, res.ok ? 'success' : 'error');
+  if (!res.ok) return;
+  btn.disabled = true;
+  btn.textContent = 'Restarting…';
+  setTimeout(async function poll() {
+    try {
+      const r = await fetch('/');
+      if (r.ok) { window.location.reload(); return; }
+    } catch {}
+    setTimeout(poll, 2000);
+  }, 4000);
+}
+
 // ─── Delegated form handler ───────────────────────────────────────────────────
 // Intercepts forms with data-ajax="true".
 //

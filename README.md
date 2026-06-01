@@ -34,6 +34,7 @@ Web dashboard for managing an Alpine Linux software router running as a VM in Pr
 | Bandwidth | Real-time Chart.js graphs for `ppp0` + `lan` via SSE |
 | Logs | Live-streaming `/var/log/messages` with category filter (firewall/DHCP/PPPoE/system) + search |
 | Wake-on-LAN | Saved device list, send magic packet to any LAN device |
+| System | Reboot now, scheduled daily reboot, version info, self-update from GitHub releases |
 
 ## Development
 
@@ -176,6 +177,28 @@ rc-service srouter start
 ```
 
 Dashboard available at `http://192.168.0.1:8080`. Login with any Linux system user.
+
+## Releases and self-update
+
+Releases are built automatically by the GitHub Actions workflow (`.github/workflows/release.yml`) when a tag matching `v*` is pushed:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow builds the Alpine Linux binary, embeds the version from the tag, and uploads two assets to the GitHub release:
+- `srouter-linux` — raw binary (used by the dashboard self-update)
+- `srouter-linux.tar.gz` — binary + `install.sh` bundle (for manual upgrades)
+
+### Self-update from the dashboard
+
+The **System** page shows the current version and a **Check for updates** button. When a newer release is found on GitHub, an **Install & restart** button appears. Clicking it:
+1. Downloads `srouter-linux` from the release assets.
+2. Atomically replaces the running binary.
+3. Runs `rc-service srouter restart` — OpenRC sends SIGTERM, then starts the new binary.
+
+> **Note:** The release must contain a binary asset named exactly `srouter-linux`. The workflow handles this automatically; manual releases must include it.
 
 ## Project layout
 

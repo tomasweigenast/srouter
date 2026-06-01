@@ -18,14 +18,16 @@ import (
 var timeRE = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 
 type SystemHandler struct {
-	db   *sql.DB
-	tmpl *template.Template
+	db      *sql.DB
+	updater *system.UpdateChecker
+	tmpl    *template.Template
 }
 
 func NewSystemHandler(i do.Injector) (*SystemHandler, error) {
 	return &SystemHandler{
-		db:   do.MustInvoke[*sql.DB](i),
-		tmpl: web.MustParsePage("system"),
+		db:      do.MustInvoke[*sql.DB](i),
+		updater: do.MustInvoke[*system.UpdateChecker](i),
+		tmpl:    web.MustParsePage("system"),
 	}, nil
 }
 
@@ -35,6 +37,8 @@ func (h *SystemHandler) Routes() chi.Router {
 	r.Post("/reboot", h.reboot)
 	r.Post("/schedule", h.schedule)
 	r.Delete("/schedule", h.cancelSchedule)
+	r.Post("/update/check", h.checkUpdate)
+	r.Post("/update/install", h.installUpdate)
 	return r
 }
 
@@ -43,6 +47,8 @@ type systemPage struct {
 	Username      string
 	Scheduled     bool
 	ScheduledTime string // HH:MM
+	AppVersion    string
+	Update        system.UpdateStatus
 }
 
 func (h *SystemHandler) show(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +59,8 @@ func (h *SystemHandler) show(w http.ResponseWriter, r *http.Request) {
 		Username:      sess.Username,
 		Scheduled:     ok,
 		ScheduledTime: tod,
+		AppVersion:    system.AppVersion,
+		Update:        h.updater.Status(),
 	})
 }
 
@@ -91,4 +99,29 @@ func (h *SystemHandler) cancelSchedule(w http.ResponseWriter, r *http.Request) {
 	html, _ := web.RenderPartial(h.tmpl, "schedule_status", systemPage{Scheduled: false})
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
+}
+
+func (h *SystemHandler) checkUpdate(w http.ResponseWriter, r *http.Request) {
+	status := h.updater.Check(r.Context())
+	html, err := web.RenderPartial(h.tmpl, "update_status", systemPage{
+		AppVersion: system.AppVersion,
+		Update:     status,
+	})
+	if err != nil {
+		slog.Error("render update_status partial", "err", err)
+		http.Error(w, "render failed", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(html))
+}
+
+func (h *SystemHandler) installUpdate(w http.ResponseWriter, r *http.Request) {
+	slog.Info("update install requested")
+	go func() {
+		if err := h.updater.Install(r.Context()); err != nil {
+			slog.Error("install update", "err", err)
+		}
+	}()
+	writeJSON(w, true, "Installing update, service will restart shortly…")
 }
