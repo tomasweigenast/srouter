@@ -22,14 +22,16 @@
             class="text-xs text-gray-500 hover:text-gray-900 transition-colors">Clear</button>
   </div>
 
-  <div id="sse-container"
-       hx-ext="sse"
-       sse-connect="/logs/events?category={{.Filter.Category}}&search={{.Filter.Search}}"
-       class="flex-1 bg-white border border-gray-200 rounded-xl overflow-hidden">
-    <div id="log-lines"
-         sse-swap="logline"
-         hx-swap="beforeend"
-         class="log-container h-[70vh] overflow-y-auto p-4 space-y-0.5 mono text-xs">
+  <div id="sse-wrapper" class="flex-1">
+    <div id="sse-container"
+         hx-ext="sse"
+         sse-connect="/logs/events?category={{.Filter.Category}}&search={{.Filter.Search}}"
+         class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div id="log-lines"
+           sse-swap="logline"
+           hx-swap="beforeend"
+           class="log-container h-[70vh] overflow-y-auto p-4 space-y-0.5 mono text-xs">
+      </div>
     </div>
   </div>
 </div>
@@ -44,12 +46,17 @@ function debounceReconnect() {
 }
 function reconnectSSE() {
   const form = document.getElementById('log-filter-form');
-  const category = form.querySelector('[name=category]').value;
-  const search = form.querySelector('[name=search]').value;
-  const container = document.getElementById('sse-container');
-  const url = '/logs/events?category=' + encodeURIComponent(category) + '&search=' + encodeURIComponent(search);
-  container.setAttribute('sse-connect', url);
-  htmx.process(container);
+  const category = encodeURIComponent(form.querySelector('[name=category]').value);
+  const search = encodeURIComponent(form.querySelector('[name=search]').value);
+  const url = '/logs/events?category=' + category + '&search=' + search;
+  const logLinesClass = document.getElementById('log-lines').className;
+  const wrapper = document.getElementById('sse-wrapper');
+  // Replace the SSE container entirely so HTMX opens a fresh EventSource
+  wrapper.innerHTML =
+    '<div id="sse-container" hx-ext="sse" sse-connect="' + url + '" class="bg-white border border-gray-200 rounded-xl overflow-hidden">' +
+      '<div id="log-lines" sse-swap="logline" hx-swap="beforeend" class="' + logLinesClass + '"></div>' +
+    '</div>';
+  htmx.process(wrapper.firstElementChild);
 }
 </script>
 {{end}}
