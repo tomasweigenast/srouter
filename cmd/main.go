@@ -77,6 +77,7 @@ func main() {
 	do.Provide(i, handler.NewLogsHandler)
 	do.Provide(i, handler.NewBandwidthHandler)
 	do.Provide(i, handler.NewWoLHandler)
+	do.Provide(i, handler.NewSpeedtestHandler)
 
 	// ── Background workers ───────────────────────────────────────────────
 	go session.CleanupLoop(database, time.Hour)
@@ -94,7 +95,8 @@ func main() {
 	pfHandler        := do.MustInvoke[*handler.PortForwardHandler](i)
 	logsHandler      := do.MustInvoke[*handler.LogsHandler](i)
 	bwHandler        := do.MustInvoke[*handler.BandwidthHandler](i)
-	wolHandler       := do.MustInvoke[*handler.WoLHandler](i)
+	wolHandler          := do.MustInvoke[*handler.WoLHandler](i)
+	speedtestHandler    := do.MustInvoke[*handler.SpeedtestHandler](i)
 
 	// Public routes
 	authHandler.Register(r)
@@ -111,6 +113,7 @@ func main() {
 		r.Mount("/logs", logsHandler.Routes())
 		r.Mount("/bandwidth", bwHandler.Routes())
 		r.Mount("/wol", wolHandler.Routes())
+		r.Mount("/speedtest", speedtestHandler.Routes())
 	})
 
 	// Static files

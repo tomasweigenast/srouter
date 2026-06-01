@@ -1,0 +1,139 @@
+{{template "layout.html" .}}
+{{define "title"}}Speedtest — srouter{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+  <h1 class="text-xl font-semibold text-gray-900">Speedtest</h1>
+
+  <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-6">
+    <p class="text-sm text-gray-600">Tests WAN throughput using Cloudflare's speed endpoints. The test takes ~30 seconds.</p>
+
+    <div class="flex items-center gap-4">
+      <button id="run-btn"
+              onclick="startTest()"
+              class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-5 py-2 rounded-lg transition-colors">
+        Run Speedtest
+      </button>
+      <span id="status-msg" class="text-sm text-gray-500"></span>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+      {{/* Latency */}}
+      <div id="card-latency" class="border border-gray-200 rounded-xl p-5 transition-opacity opacity-40">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Latency</p>
+        <p id="val-latency" class="text-2xl font-semibold text-gray-900">—</p>
+        <p class="text-xs text-gray-500 mt-1">ms avg (ping 8.8.8.8)</p>
+        <p id="err-latency" class="text-xs text-red-400 mt-1 hidden"></p>
+      </div>
+
+      {{/* Download */}}
+      <div id="card-download" class="border border-gray-200 rounded-xl p-5 transition-opacity opacity-40">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Download</p>
+        <p id="val-download" class="text-2xl font-semibold text-gray-900">—</p>
+        <p class="text-xs text-gray-500 mt-1">Mbps</p>
+        <p id="err-download" class="text-xs text-red-400 mt-1 hidden"></p>
+      </div>
+
+      {{/* Upload */}}
+      <div id="card-upload" class="border border-gray-200 rounded-xl p-5 transition-opacity opacity-40">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Upload</p>
+        <p id="val-upload" class="text-2xl font-semibold text-gray-900">—</p>
+        <p class="text-xs text-gray-500 mt-1">Mbps</p>
+        <p id="err-upload" class="text-xs text-red-400 mt-1 hidden"></p>
+      </div>
+
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{block "scripts" .}}
+<script>
+let es = null;
+
+function startTest() {
+  if (es) { es.close(); }
+
+  const btn = document.getElementById('run-btn');
+  const status = document.getElementById('status-msg');
+  btn.disabled = true;
+  btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+  // Reset cards
+  ['latency', 'download', 'upload'].forEach(k => {
+    document.getElementById('val-' + k).textContent = '—';
+    document.getElementById('card-' + k).classList.add('opacity-40');
+    document.getElementById('card-' + k).classList.remove('opacity-100');
+    document.getElementById('err-' + k).classList.add('hidden');
+    document.getElementById('err-' + k).textContent = '';
+  });
+
+  status.textContent = 'Starting…';
+
+  es = new EventSource('/speedtest/run');
+
+  es.addEventListener('stage', e => {
+    const stage = JSON.parse(e.data);
+    const labels = { latency: 'Measuring latency…', download: 'Measuring download…', upload: 'Measuring upload…' };
+    status.textContent = labels[stage] || stage;
+    const card = document.getElementById('card-' + stage);
+    if (card) {
+      card.classList.remove('opacity-40');
+      card.classList.add('opacity-100');
+      document.getElementById('val-' + stage).textContent = '…';
+    }
+  });
+
+  es.addEventListener('latency', e => {
+    const d = JSON.parse(e.data);
+    if (d.Err) {
+      showErr('latency', d.Err);
+    } else {
+      document.getElementById('val-latency').textContent = d.Mbps.toFixed(1);
+    }
+  });
+
+  es.addEventListener('download', e => {
+    const d = JSON.parse(e.data);
+    if (d.Err) {
+      showErr('download', d.Err);
+    } else {
+      document.getElementById('val-download').textContent = d.Mbps.toFixed(1);
+    }
+  });
+
+  es.addEventListener('upload', e => {
+    const d = JSON.parse(e.data);
+    if (d.Err) {
+      showErr('upload', d.Err);
+    } else {
+      document.getElementById('val-upload').textContent = d.Mbps.toFixed(1);
+    }
+  });
+
+  es.addEventListener('done', () => {
+    es.close();
+    es = null;
+    status.textContent = 'Done.';
+    btn.disabled = false;
+    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+  });
+
+  es.onerror = () => {
+    status.textContent = 'Connection error.';
+    btn.disabled = false;
+    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    es.close();
+    es = null;
+  };
+}
+
+function showErr(key, msg) {
+  document.getElementById('val-' + key).textContent = 'Error';
+  const el = document.getElementById('err-' + key);
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+</script>
+{{end}}
