@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 type Interface struct {
@@ -176,9 +178,32 @@ func GetRoutes() ([]Route, error) {
 	return routes, nil
 }
 
+// internetCache holds the last known connectivity result so the dashboard
+// doesn't block on a 2-second ping every tick.
+var internetCache struct {
+	sync.Mutex
+	ok        bool
+	updatedAt time.Time
+}
+
+const internetCacheTTL = 15 * time.Second
+
 func CheckInternetConnectivity() (bool, error) {
-	err := exec.Command("ping", "-c", "1", "-W", "2", "8.8.8.8").Run()
-	return err == nil, nil
+	internetCache.Lock()
+	defer internetCache.Unlock()
+	if time.Since(internetCache.updatedAt) < internetCacheTTL {
+		return internetCache.ok, nil
+	}
+	// Run ping in the background; return the last cached value immediately
+	// so callers never block. First call returns false until the goroutine fires.
+	go func() {
+		ok := exec.Command("ping", "-c", "1", "-W", "2", "8.8.8.8").Run() == nil
+		internetCache.Lock()
+		internetCache.ok = ok
+		internetCache.updatedAt = time.Now()
+		internetCache.Unlock()
+	}()
+	return internetCache.ok, nil
 }
 
 func GetConntrackStats() (ConntrackStats, error) {
