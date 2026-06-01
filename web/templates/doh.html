@@ -1,0 +1,260 @@
+{{template "layout.html" .}}
+{{define "title"}}Encrypted DNS — srouter{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+  <h1 class="text-xl font-semibold text-gray-900">Encrypted DNS</h1>
+
+  {{/* ── Install warnings ───────────────────────────────────────────────── */}}
+  {{if not .Status.DoTInstalled}}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+    <strong>stubby not installed</strong> — DoT (DNS-over-TLS) unavailable.
+    <code class="bg-amber-100 px-1.5 py-0.5 rounded text-xs font-mono ml-1">apk add stubby</code>
+  </div>
+  {{end}}
+  {{if not .Status.DoHInstalled}}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+    <strong>dnscrypt-proxy not installed</strong> — DoH (DNS-over-HTTPS) unavailable.
+    <code class="bg-amber-100 px-1.5 py-0.5 rounded text-xs font-mono ml-1">apk add dnscrypt-proxy</code>
+  </div>
+  {{end}}
+
+  {{/* ── Status card ─────────────────────────────────────────────────── */}}
+  <div class="bg-white border border-gray-200 rounded-xl px-5 py-4 flex flex-wrap items-center gap-3" id="doh-status-card">
+    {{/* DoT badge */}}
+    <div class="flex items-center gap-1.5">
+      <span class="text-xs text-gray-500 font-medium">DoT</span>
+      {{if .Status.DoTRunning}}
+      <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5" id="dot-badge">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>running
+      </span>
+      {{else}}
+      <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5" id="dot-badge">
+        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>stopped
+      </span>
+      {{end}}
+    </div>
+
+    {{/* DoH badge */}}
+    <div class="flex items-center gap-1.5">
+      <span class="text-xs text-gray-500 font-medium">DoH</span>
+      {{if .Status.DoHRunning}}
+      <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5" id="doh-badge">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>running
+      </span>
+      {{else}}
+      <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5" id="doh-badge">
+        <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>stopped
+      </span>
+      {{end}}
+    </div>
+
+    {{if .Status.Config.Enabled}}
+    <span class="text-sm text-gray-600">
+      Provider: <span class="font-medium text-gray-900" id="status-provider">{{.Status.Config.ProviderID}}</span>
+    </span>
+    {{else}}
+    <span class="text-sm text-gray-500" id="status-provider">Encrypted DNS disabled — plain DNS in use.</span>
+    {{end}}
+  </div>
+
+  {{/* ── Config form ──────────────────────────────────────────────────── */}}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100">
+      <h2 class="text-sm font-medium text-gray-700">Configuration</h2>
+    </div>
+    <form class="px-5 py-4 space-y-5" data-ajax="true" data-json="true" action="/doh/toggle" method="post"
+          onsubmit="setTimeout(()=>location.reload(),400)">
+
+      {{/* Enable toggle */}}
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-900">Enable Encrypted DNS</p>
+          <p class="text-xs text-gray-500 mt-0.5">Starts stubby (DoT) and dnscrypt-proxy (DoH) as local resolvers</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer {{if not .Status.AnyInstalled}}opacity-50 pointer-events-none{{end}}">
+          <input type="checkbox" name="enabled" value="1" id="doh-toggle"
+                 {{if .Status.Config.Enabled}}checked{{end}}
+                 class="sr-only peer">
+          <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer
+                      peer-checked:bg-blue-600 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                      after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+        </label>
+      </div>
+
+      {{/* Provider selector */}}
+      <div>
+        <label class="text-xs text-gray-500 block mb-1.5">Provider</label>
+        <select name="provider" id="doh-provider"
+                class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500
+                       {{if not .Status.AnyInstalled}}opacity-50 pointer-events-none{{end}}">
+          {{range .Status.Providers}}
+          <option value="{{.ID}}" {{if eq $.Status.Config.ProviderID .ID}}selected{{end}}>
+            {{.Label}}{{if .Description}} — {{.Description}}{{end}}
+          </option>
+          {{end}}
+        </select>
+      </div>
+
+      {{/* Custom provider fields */}}
+      <div id="custom-fields" class="space-y-3 {{if ne .Status.Config.ProviderID "custom"}}hidden{{end}}">
+        <p class="text-xs text-gray-500 font-medium uppercase tracking-wider">Custom provider</p>
+        {{if .Status.DoTInstalled}}
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-gray-500 block mb-1">DoT Server IP</label>
+            <input type="text" name="custom_dot_ip" value="{{.Status.Config.CustomDoTIP}}"
+                   placeholder="9.9.9.9"
+                   class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 block mb-1">TLS Hostname</label>
+            <input type="text" name="custom_dot_tls_name" value="{{.Status.Config.CustomDoTTLSName}}"
+                   placeholder="dns.example.com"
+                   class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+        {{end}}
+        {{if .Status.DoHInstalled}}
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">DoH URL</label>
+          <input type="url" name="custom_doh_url" value="{{.Status.Config.CustomDoHURL}}"
+                 placeholder="https://dns.example.com/dns-query"
+                 class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        {{end}}
+      </div>
+
+      {{/* Fallback checkbox */}}
+      <div class="flex items-start gap-3 {{if not .Status.AnyInstalled}}opacity-50 pointer-events-none{{end}}">
+        <input type="checkbox" name="fallback" value="1" id="doh-fallback"
+               {{if .Status.Config.FallbackToPlain}}checked{{end}}
+               class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+        <div>
+          <label for="doh-fallback" class="text-sm text-gray-900 cursor-pointer">Fall back to plain DNS if encrypted resolvers fail</label>
+          <p class="text-xs text-gray-500 mt-0.5">Adds plain upstream servers as last resort in the priority chain</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-1">
+        <button type="submit"
+                {{if not .Status.AnyInstalled}}disabled{{end}}
+                class="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm px-5 py-2 rounded-lg transition-colors">
+          Apply
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {{/* ── Traffic stats ──────────────────────────────────────────────── */}}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100">
+      <h2 class="text-sm font-medium text-gray-700">Traffic</h2>
+    </div>
+    <div class="grid grid-cols-3 divide-x divide-gray-100">
+      <div class="px-5 py-4 text-center">
+        <p class="text-2xl font-semibold text-gray-900" id="stat-dot">—</p>
+        <p class="text-xs text-gray-500 mt-1">DoT queries</p>
+      </div>
+      <div class="px-5 py-4 text-center">
+        <p class="text-2xl font-semibold text-gray-900" id="stat-doh">—</p>
+        <p class="text-xs text-gray-500 mt-1">DoH queries</p>
+      </div>
+      <div class="px-5 py-4 text-center">
+        <p class="text-2xl font-semibold text-gray-900" id="stat-plain">—</p>
+        <p class="text-xs text-gray-500 mt-1">Plain fallback</p>
+      </div>
+    </div>
+  </div>
+
+  {{/* ── Test lookup ──────────────────────────────────────────────────── */}}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100">
+      <h2 class="text-sm font-medium text-gray-700">Test resolution</h2>
+    </div>
+    <div class="px-5 py-4 space-y-3">
+      <form data-ajax="true" action="/doh/test" method="post"
+            data-target="#doh-test-result" class="flex gap-2">
+        <input type="text" name="hostname" placeholder="google.com"
+               class="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button type="submit"
+                class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">
+          Test
+        </button>
+      </form>
+      <div id="doh-test-result" class="text-sm text-gray-500 empty:hidden"></div>
+    </div>
+  </div>
+
+  {{/* ── Priority chain info ──────────────────────────────────────────── */}}
+  <div class="bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 text-sm text-gray-600 space-y-2">
+    <p class="font-medium text-gray-700">Resolution priority (dnsmasq strict-order)</p>
+    <div class="font-mono text-xs bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-800 space-y-1">
+      {{if .Status.DoTInstalled}}
+      <div class="flex items-center gap-2">
+        <span class="text-blue-600 font-semibold">1.</span>
+        <span>stubby <span class="text-gray-400">127.0.0.1:5353</span> — DoT (TLS port 853)</span>
+      </div>
+      {{end}}
+      {{if .Status.DoHInstalled}}
+      <div class="flex items-center gap-2">
+        <span class="text-blue-600 font-semibold">{{if .Status.DoTInstalled}}2{{else}}1{{end}}.</span>
+        <span>dnscrypt-proxy <span class="text-gray-400">127.0.0.1:5454</span> — DoH (HTTPS port 443)</span>
+      </div>
+      {{end}}
+      {{if .Status.Config.FallbackToPlain}}
+      <div class="flex items-center gap-2 text-gray-500">
+        <span class="font-semibold">↓</span>
+        <span>plain DNS <span class="text-gray-400">(restored upstreams)</span></span>
+      </div>
+      {{end}}
+    </div>
+    <p class="text-xs text-gray-500">
+      dnsmasq tries each resolver in order. If one fails or times out, it moves to the next.
+      Plain upstream servers are saved and restored when encrypted DNS is disabled.
+    </p>
+  </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+  // Show/hide custom provider fields.
+  document.getElementById('doh-provider')?.addEventListener('change', function() {
+    const custom = document.getElementById('custom-fields');
+    if (custom) custom.classList.toggle('hidden', this.value !== 'custom');
+  });
+
+  // Update badges via SSE.
+  const src = new EventSource('/doh/status');
+  src.addEventListener('dohstatus', e => {
+    const s = JSON.parse(e.data);
+
+    function setBadge(id, running) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (running) {
+        el.className = 'inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5';
+        el.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>running';
+      } else {
+        el.className = 'inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5';
+        el.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>stopped';
+      }
+    }
+
+    setBadge('dot-badge', s.DoTRunning);
+    setBadge('doh-badge', s.DoHRunning);
+
+    const prov = document.getElementById('status-provider');
+    if (prov && s.Config) {
+      prov.textContent = s.Config.Enabled ? s.Config.ProviderID : 'Encrypted DNS disabled — plain DNS in use.';
+    }
+
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
+    set('stat-dot',   s.DoTQueries);
+    set('stat-doh',   s.DoHQueries);
+    set('stat-plain', s.PlainQueries);
+  });
+  src.onerror = () => src.close();
+</script>
+{{end}}

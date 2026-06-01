@@ -29,6 +29,8 @@ apk add --no-cache \
   linux-pam \
   curl \
   iptables \
+  stubby \
+  dnscrypt-proxy \
   >/dev/null
 
 # ── Logging daemons (needed for /var/log/messages) ───────────────────────────

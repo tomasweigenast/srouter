@@ -47,7 +47,7 @@ func main() {
 	do.ProvideValue(i, database)
 
 	// System interfaces — real or mock based on SROUTER_DEV_MODE
-	system.ProvideSystem(i, cfg.DevMode)
+	system.ProvideSystem(i, database, cfg.DevMode)
 
 	// Update checker
 	do.ProvideValue(i, system.NewUpdateChecker(cfg.DevMode))
@@ -82,6 +82,7 @@ func main() {
 	do.Provide(i, handler.NewWoLHandler)
 	do.Provide(i, handler.NewSpeedtestHandler)
 	do.Provide(i, handler.NewSystemHandler)
+	do.Provide(i, handler.NewDoHHandler)
 	do.Provide(i, func(i do.Injector) (*system.DNSStatsCollector, error) {
 		logs := do.MustInvoke[system.LogStream](i)
 		if do.MustInvoke[config.Config](i).DevMode {
@@ -111,6 +112,7 @@ func main() {
 	wolHandler          := do.MustInvoke[*handler.WoLHandler](i)
 	speedtestHandler    := do.MustInvoke[*handler.SpeedtestHandler](i)
 	systemHandler       := do.MustInvoke[*handler.SystemHandler](i)
+	doHHandler          := do.MustInvoke[*handler.DoHHandler](i)
 
 	// Public routes
 	authHandler.Register(r)
@@ -129,6 +131,7 @@ func main() {
 		r.Mount("/wol", wolHandler.Routes())
 		r.Mount("/speedtest", speedtestHandler.Routes())
 		r.Mount("/system", systemHandler.Routes())
+		r.Mount("/doh", doHHandler.Routes())
 	})
 
 	// Static files

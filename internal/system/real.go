@@ -1,5 +1,7 @@
 package system
 
+import "database/sql"
+
 // RealSystem implements all system interfaces using the actual Linux filesystem,
 // /proc, /sys, and router config files. Use in production on Alpine Linux.
 type RealSystem struct{}
@@ -54,3 +56,13 @@ func (RealSystem) DeleteCustomRule(index int) error                            {
 
 // WoL
 func (RealSystem) SendMagicPacket(mac string) error { return SendMagicPacket(mac) }
+
+// RealDoHSystem implements DoH with database-backed config.
+// It is a separate struct from RealSystem because it requires a *sql.DB.
+type RealDoHSystem struct{ DB *sql.DB }
+
+func (s RealDoHSystem) GetDoHStatus() (DoHStatus, error)                     { return GetDoHStatus(s.DB) }
+func (s RealDoHSystem) EnableEncryptedDNS(c DoHConfig) error                 { return EnableEncryptedDNS(s.DB, c) }
+func (s RealDoHSystem) DisableEncryptedDNS() error                           { return DisableEncryptedDNS(s.DB) }
+func (s RealDoHSystem) SaveDoHConfig(c DoHConfig) error                      { return SaveDoHConfig(s.DB, c) }
+func (s RealDoHSystem) TestEncryptedLookup(h string) (EncryptedLookupResult, error) { return TestEncryptedLookup(h) }

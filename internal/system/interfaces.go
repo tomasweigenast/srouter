@@ -64,6 +64,25 @@ type WoL interface {
 	SendMagicPacket(mac string) error
 }
 
+// DoH manages the dnscrypt-proxy encrypted DNS proxy service.
+type DoH interface {
+	GetDoHStatus() (DoHStatus, error)
+	EnableEncryptedDNS(cfg DoHConfig) error
+	DisableEncryptedDNS() error
+	SaveDoHConfig(cfg DoHConfig) error
+	TestEncryptedLookup(hostname string) (EncryptedLookupResult, error)
+}
+
+// EncryptedLookupResult holds per-protocol resolution results for the test tool.
+type EncryptedLookupResult struct {
+	DoTAddrs   []string
+	DoTLatency string
+	DoTErr     string
+	DoHAddrs   []string
+	DoHLatency string
+	DoHErr     string
+}
+
 // LogStream tails a log source and fans out filtered lines to subscribers.
 // LogBroadcaster satisfies this interface.
 type LogStream interface {

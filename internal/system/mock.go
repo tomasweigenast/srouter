@@ -267,6 +267,59 @@ func (MockSystem) SendMagicPacket(mac string) error {
 	return nil
 }
 
+// ── DoH ──────────────────────────────────────────────────────────────────
+
+type MockDoHSystem struct{}
+
+var mockDoHEnabled bool
+var mockDoHConfig = DoHConfig{
+	Enabled: false, ProviderID: "cloudflare", FallbackToPlain: true,
+	StashedUpstreams: "1.1.1.1,8.8.8.8",
+	CustomDoHURL: "",
+}
+
+func (MockDoHSystem) GetDoHStatus() (DoHStatus, error) {
+	return DoHStatus{
+		DoTInstalled: true,
+		DoHInstalled: true,
+		DoTRunning:   mockDoHEnabled,
+		DoHRunning:   mockDoHEnabled,
+		Config:       mockDoHConfig,
+		Providers:    BuiltinProviders,
+	}, nil
+}
+
+func (MockDoHSystem) EnableEncryptedDNS(cfg DoHConfig) error {
+	slog.Info("[mock] EnableEncryptedDNS", "provider", cfg.ProviderID)
+	cfg.Enabled = true
+	mockDoHConfig = cfg
+	mockDoHEnabled = true
+	return nil
+}
+
+func (MockDoHSystem) DisableEncryptedDNS() error {
+	slog.Info("[mock] DisableEncryptedDNS")
+	mockDoHEnabled = false
+	mockDoHConfig.Enabled = false
+	return nil
+}
+
+func (MockDoHSystem) SaveDoHConfig(cfg DoHConfig) error {
+	slog.Info("[mock] SaveDoHConfig", "provider", cfg.ProviderID)
+	mockDoHConfig = cfg
+	return nil
+}
+
+func (MockDoHSystem) TestEncryptedLookup(hostname string) (EncryptedLookupResult, error) {
+	slog.Info("[mock] TestEncryptedLookup", "hostname", hostname)
+	return EncryptedLookupResult{
+		DoTAddrs:   []string{"142.250.64.14", "2607:f8b0:4004:c09::65"},
+		DoTLatency: "12ms",
+		DoHAddrs:   []string{"142.250.64.14"},
+		DoHLatency: "31ms",
+	}, nil
+}
+
 // NewMockDNSStatsCollector returns a collector seeded with plausible fake data.
 func NewMockDNSStatsCollector() *DNSStatsCollector {
 	c := &DNSStatsCollector{
