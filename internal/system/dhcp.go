@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -183,7 +184,14 @@ func SaveDHCPConfig(cfg DHCPConfig) error {
 }
 
 func ReloadDNSMasq() error {
-	if err := reloadService("dnsmasq"); err != nil {
+	// Send SIGHUP directly to avoid OpenRC dependency chain (rc-service dnsmasq
+	// reload would try to stop services that depend on dnsmasq, including srouter).
+	out, err := exec.Command("pidof", "dnsmasq").Output()
+	if err != nil || len(strings.TrimSpace(string(out))) == 0 {
+		return fmt.Errorf("dnsmasq not running")
+	}
+	pid := strings.TrimSpace(strings.Fields(string(out))[0])
+	if err := exec.Command("kill", "-HUP", pid).Run(); err != nil {
 		return fmt.Errorf("reload dnsmasq: %w", err)
 	}
 	return nil

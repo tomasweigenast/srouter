@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.0.5
+
+### Fixed
+
+- dnsmasq reload now sends SIGHUP directly (`kill -HUP <pid>`) instead of going through `rc-service dnsmasq reload`. The OpenRC approach triggered the reverse-dependency chain (srouter depends on dnsmasq), causing reload to fail silently and leaving DNS changes unapplied until a manual restart.
+
 ## v1.0.4
 
 ### Fixed
