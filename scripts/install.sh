@@ -97,3 +97,6 @@ echo "==> srouter installed and running."
 echo "    Dashboard: http://192.168.0.1:8080"
 echo "    Logs:      tail -f /var/log/srouter.log"
 echo "    Config:    ${CONFIG_DIR}/config.toml"
+
+# ── Cleanup installer files ──────────────────────────────────────────────────
+rm -f "${BINARY}" srouter-linux.tar.gz "$0"
