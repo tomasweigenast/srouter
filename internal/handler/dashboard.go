@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -53,18 +54,45 @@ type DashboardHandler struct {
 	db       *sql.DB
 	interval time.Duration
 	tmpl     *template.Template
+
+	pkgsMu      sync.RWMutex
+	pkgsCache   []system.RouterPackage
+	pkgsUpdated time.Time
 }
 
 func NewDashboardHandler(i do.Injector) (*DashboardHandler, error) {
 	cfg := do.MustInvoke[config.Config](i)
-	return &DashboardHandler{
+	h := &DashboardHandler{
 		metrics:  do.MustInvoke[system.Metrics](i),
 		dhcp:     do.MustInvoke[system.DHCP](i),
 		net:      do.MustInvoke[system.Network](i),
 		db:       do.MustInvoke[*sql.DB](i),
 		interval: time.Duration(cfg.UpdateIntervalMs) * time.Millisecond,
 		tmpl:     web.MustParsePage("dashboard"),
-	}, nil
+	}
+	// Warm the packages cache in the background so the first page load doesn't block.
+	go h.refreshPackages()
+	return h, nil
+}
+
+func (h *DashboardHandler) cachedPackages() []system.RouterPackage {
+	h.pkgsMu.RLock()
+	fresh := time.Since(h.pkgsUpdated) < 5*time.Minute
+	cached := h.pkgsCache
+	h.pkgsMu.RUnlock()
+	if fresh {
+		return cached
+	}
+	go h.refreshPackages()
+	return cached
+}
+
+func (h *DashboardHandler) refreshPackages() {
+	pkgs, _ := h.metrics.GetRouterPackages()
+	h.pkgsMu.Lock()
+	h.pkgsCache = pkgs
+	h.pkgsUpdated = time.Now()
+	h.pkgsMu.Unlock()
 }
 
 func (h *DashboardHandler) Register(r chi.Router) {
@@ -80,14 +108,13 @@ func (h *DashboardHandler) Register(r chi.Router) {
 func (h *DashboardHandler) showDashboard(w http.ResponseWriter, r *http.Request) {
 	sess, _ := session.FromContext(r.Context())
 	data, devices := h.gatherData()
-	pkgs, _ := h.metrics.GetRouterPackages()
 	web.Render(w, h.tmpl, dashboardPage{
 		ActivePage: "dashboard",
 		Username:   sess.Username,
 		Stats:      data,
 		Devices:    devices,
 		SysInfo:    data.SysInfo,
-		Packages:   pkgs,
+		Packages:   h.cachedPackages(),
 	})
 }
 
@@ -234,17 +261,31 @@ func (h *DashboardHandler) unblockDevice(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
-	cpu, _ := h.metrics.GetCPU()
-	mem, _ := h.metrics.GetMemory()
-	disks, _ := h.metrics.GetDisks()
-	pppoe, _ := h.metrics.GetPPPoEStatus()
-	sysInfo, _ := h.metrics.GetSystemInfo()
-	internetOK, _ := h.metrics.CheckInternetConnectivity()
-
-	leases, _ := h.dhcp.GetLeases()
-	arp, _ := h.net.GetARPTable()
-	labels, _ := system.ListDeviceLabels(h.db)
-	blocked, _ := system.ListBlockedMACs(h.db)
+	var (
+		cpu        system.CPUInfo
+		mem        system.MemInfo
+		disks      []system.DiskInfo
+		pppoe      system.PPPoEStatus
+		sysInfo    system.SystemInfo
+		internetOK bool
+		leases     []system.Lease
+		arp        []system.ARPEntry
+		labels     map[string]string
+		blocked    map[string]struct{}
+		wg         sync.WaitGroup
+	)
+	wg.Add(10)
+	go func() { defer wg.Done(); cpu, _ = h.metrics.GetCPU() }()
+	go func() { defer wg.Done(); mem, _ = h.metrics.GetMemory() }()
+	go func() { defer wg.Done(); disks, _ = h.metrics.GetDisks() }()
+	go func() { defer wg.Done(); pppoe, _ = h.metrics.GetPPPoEStatus() }()
+	go func() { defer wg.Done(); sysInfo, _ = h.metrics.GetSystemInfo() }()
+	go func() { defer wg.Done(); internetOK, _ = h.metrics.CheckInternetConnectivity() }()
+	go func() { defer wg.Done(); leases, _ = h.dhcp.GetLeases() }()
+	go func() { defer wg.Done(); arp, _ = h.net.GetARPTable() }()
+	go func() { defer wg.Done(); labels, _ = system.ListDeviceLabels(h.db) }()
+	go func() { defer wg.Done(); blocked, _ = system.ListBlockedMACs(h.db) }()
+	wg.Wait()
 
 	// Index DHCP leases by MAC for hostname lookup
 	hostnameByMAC := map[string]string{}

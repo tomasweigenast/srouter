@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -92,7 +93,19 @@ func GetRouterPackages() ([]RouterPackage, error) {
 	return pkgs, nil
 }
 
-func detectNTP() (service string, synced bool) {
+var (
+	ntpMu      sync.Mutex
+	ntpService string
+	ntpSynced  bool
+	ntpChecked time.Time
+)
+
+func detectNTP() (string, bool) {
+	ntpMu.Lock()
+	defer ntpMu.Unlock()
+	if !ntpChecked.IsZero() && time.Since(ntpChecked) < 5*time.Minute {
+		return ntpService, ntpSynced
+	}
 	services := []string{"openntpd", "chronyd", "ntpd"}
 	for _, svc := range services {
 		out, err := exec.Command("rc-service", svc, "status").Output()
@@ -100,10 +113,14 @@ func detectNTP() (service string, synced bool) {
 			continue
 		}
 		if strings.Contains(string(out), "started") {
-			return svc, true
+			ntpService, ntpSynced = svc, true
+			ntpChecked = time.Now()
+			return ntpService, ntpSynced
 		}
 	}
-	return "none", false
+	ntpService, ntpSynced = "none", false
+	ntpChecked = time.Now()
+	return ntpService, ntpSynced
 }
 
 func formatUptime(secs int64) string {

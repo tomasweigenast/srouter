@@ -5,29 +5,24 @@
 <div class="space-y-8">
   <h1 class="text-xl font-semibold text-gray-900">System</h1>
 
-  {{/* ── Reboot ───────────────────────────────────────────────────── */}}
+  {{/* ── Reboot ────────────────────────────────────────────────────────────── */}}
   <section class="space-y-3">
     <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Reboot</h2>
     <div class="bg-white border border-gray-200 rounded-xl p-6 flex items-center gap-4">
-      <button
-        hx-post="/system/reboot"
-        hx-target="#reboot-result"
-        hx-swap="innerHTML"
-        hx-confirm="Reboot the router now?"
-        class="bg-red-600 hover:bg-red-500 text-white text-sm px-5 py-2 rounded-lg transition-colors">
+      <button onclick="rebootNow(this)"
+              class="bg-red-600 hover:bg-red-500 text-white text-sm px-5 py-2 rounded-lg transition-colors">
         Reboot now
       </button>
-      <span id="reboot-result" class="text-sm"></span>
     </div>
   </section>
 
-  {{/* ── Scheduled reboot ─────────────────────────────────────────── */}}
+  {{/* ── Scheduled reboot ──────────────────────────────────────────────────── */}}
   <section class="space-y-3">
     <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Scheduled Reboot</h2>
     <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-      <form hx-post="/system/schedule"
-            hx-target="#schedule-status"
-            hx-swap="innerHTML"
+      <form data-ajax="true" action="/system/schedule" method="post"
+            data-target="#schedule-status" data-swap="innerHTML"
+            data-error-target="#schedule-error"
             class="flex items-end gap-3 flex-wrap">
         <div>
           <label class="text-xs text-gray-500 block mb-1">Time (24h) — runs every day</label>
@@ -39,15 +34,7 @@
                 class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">
           Schedule
         </button>
-        {{if .Scheduled}}
-        <button type="button"
-                hx-delete="/system/schedule"
-                hx-target="#schedule-status"
-                hx-swap="innerHTML"
-                class="text-sm text-gray-500 hover:text-red-400 px-3 py-2 transition-colors">
-          Cancel
-        </button>
-        {{end}}
+        <span id="schedule-error" class="text-sm text-red-400"></span>
       </form>
       <div id="schedule-status">
         {{template "schedule_status" .}}
@@ -61,9 +48,7 @@
 {{if .Scheduled}}
 <p class="text-sm text-emerald-600">
   Daily reboot at <span class="mono font-medium">{{.ScheduledTime}}</span> (every day).
-  <button hx-delete="/system/schedule"
-          hx-target="#schedule-status"
-          hx-swap="innerHTML"
+  <button onclick="fetchSwap(this, 'DELETE', '/system/schedule', '#schedule-status', 'innerHTML')"
           class="ml-2 text-red-400 hover:text-red-300 text-xs transition-colors">Cancel</button>
 </p>
 {{else}}

@@ -4,12 +4,19 @@
 
 {{block "scripts" .}}
 <script>
-// Cancel the SSE devices swap while a tag form is open so the user can type
-document.addEventListener('htmx:beforeSwap', function(evt) {
-  if (evt.detail.target.id === 'devices-table' &&
-      document.querySelector('[id^="tag-form-"]:not(.hidden)')) {
-    evt.detail.shouldSwap = false;
+const dashES = new EventSource('/events/dashboard');
+dashES.addEventListener('stats',   e => swapHTML('#stats-cards',   e.data, 'innerHTML'));
+dashES.addEventListener('sysinfo', e => swapHTML('#sysinfo-bar',   e.data, 'innerHTML'));
+dashES.addEventListener('devices', e => {
+  if (!document.querySelector('[id^="tag-form-"]:not(.hidden)')) {
+    swapHTML('#devices-table', e.data, 'innerHTML');
   }
+});
+
+// Check now button lives inside the SSE-swapped stats partial — use delegation.
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-check-internet]');
+  if (btn) fetchSwap(btn, 'POST', '/dashboard/check-internet', '#stats-cards', 'innerHTML');
 });
 </script>
 {{end}}
@@ -21,32 +28,27 @@ document.addEventListener('htmx:beforeSwap', function(evt) {
     <span class="text-xs text-gray-500" id="last-updated">Live</span>
   </div>
 
-  {{/* ── Live stats via SSE ──────────────────────────────────────── */}}
-  <div hx-ext="sse" sse-connect="/events/dashboard">
-
-    {{/* Hardware stats cards */}}
-    <div id="stats-cards" sse-swap="stats" hx-swap="innerHTML">
-      {{template "dashboard_stats" .Stats}}
-    </div>
-
-    {{/* System info bar */}}
-    <div class="mt-4 bg-white border border-gray-200 rounded-xl p-4">
-      <div id="sysinfo-bar" sse-swap="sysinfo" hx-swap="innerHTML">
-        {{template "dashboard_sysinfo" .SysInfo}}
-      </div>
-    </div>
-
-    {{/* Connected devices */}}
-    <div class="mt-6">
-      <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider mb-3">Connected Devices</h2>
-      <div id="devices-table" sse-swap="devices" hx-swap="innerHTML">
-        {{template "dashboard_devices" .Devices}}
-      </div>
-    </div>
-
+  {{/* Hardware stats cards */}}
+  <div id="stats-cards">
+    {{template "dashboard_stats" .Stats}}
   </div>
 
-  {{/* ── Installed Router Packages (static, loaded once) ────────── */}}
+  {{/* System info bar */}}
+  <div class="mt-4 bg-white border border-gray-200 rounded-xl p-4">
+    <div id="sysinfo-bar">
+      {{template "dashboard_sysinfo" .SysInfo}}
+    </div>
+  </div>
+
+  {{/* Connected devices */}}
+  <div class="mt-6">
+    <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider mb-3">Connected Devices</h2>
+    <div id="devices-table">
+      {{template "dashboard_devices" .Devices}}
+    </div>
+  </div>
+
+  {{/* Installed Router Packages (static, loaded once) */}}
   {{if .Packages}}
   <section class="space-y-3">
     <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Router Software</h2>

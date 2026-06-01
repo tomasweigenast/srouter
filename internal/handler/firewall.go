@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -102,25 +101,23 @@ func (h *FirewallHandler) getScript(w http.ResponseWriter, r *http.Request) {
 func (h *FirewallHandler) saveScript(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("filename")
 	content := r.FormValue("content")
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.fw.SaveFirewallScript(name, content); err != nil {
 		slog.Error("save firewall file", "name", name, "err", err)
-		fmt.Fprintf(w, `<span class="text-red-500 text-sm">%s</span>`, err.Error())
+		writeJSON(w, false, err.Error())
 		return
 	}
 	slog.Info("firewall file saved", "name", name)
-	fmt.Fprintf(w, `<span class="text-emerald-600 text-sm">Saved.</span>`)
+	writeJSON(w, true, "Saved.")
 }
 
 func (h *FirewallHandler) apply(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.fw.ApplyFirewall(); err != nil {
 		slog.Error("apply firewall", "err", err)
-		fmt.Fprintf(w, `<span class="text-red-500 text-sm">Failed: %s</span>`, err.Error())
+		writeJSON(w, false, "Failed: "+err.Error())
 		return
 	}
 	slog.Info("firewall applied")
-	fmt.Fprintf(w, `<span class="text-emerald-600 text-sm">Applied successfully.</span>`)
+	writeJSON(w, true, "Applied successfully.")
 }
 
 func (h *FirewallHandler) addCustomRule(w http.ResponseWriter, r *http.Request) {
@@ -138,17 +135,12 @@ func (h *FirewallHandler) addCustomRule(w http.ResponseWriter, r *http.Request) 
 		Comment:  r.FormValue("comment"),
 	}
 	if rule.Chain == "" || rule.Action == "" {
-		// Retarget to the error span on validation failure
-		w.Header().Set("HX-Retarget", "#custom-rule-error")
-		w.Header().Set("HX-Reswap", "innerHTML")
-		writeHTMXInlineError(w, "Chain and Action are required.")
+		writeJSON(w, false, "Chain and Action are required.")
 		return
 	}
 	if err := h.fw.AddCustomRule(rule); err != nil {
 		slog.Error("add custom rule", "err", err)
-		w.Header().Set("HX-Retarget", "#custom-rule-error")
-		w.Header().Set("HX-Reswap", "innerHTML")
-		writeHTMXInlineError(w, "Failed to add rule.")
+		writeJSON(w, false, "Failed to add rule.")
 		return
 	}
 	rules, _ := h.fw.GetCustomRules()

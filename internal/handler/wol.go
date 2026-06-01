@@ -111,11 +111,9 @@ func (h *WoLHandler) sendPacket(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.wol.SendMagicPacket(mac); err != nil {
 		slog.Error("send magic packet", "mac", mac, "err", err)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<span class="text-red-400 text-xs">Failed: ` + err.Error() + `</span>`))
+		writeJSON(w, false, "Failed: "+err.Error())
 		return
 	}
 	slog.Info("magic packet sent", "mac", mac)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`<span class="text-emerald-400 text-xs">Sent!</span>`))
+	writeJSON(w, true, "Magic packet sent!")
 }

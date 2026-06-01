@@ -32,11 +32,10 @@
     </div>
     <details class="bg-white border border-gray-200 rounded-xl">
       <summary class="px-4 py-3 text-sm text-blue-400 cursor-pointer select-none hover:text-blue-300">+ Add custom rule</summary>
-      <form hx-post="/firewall/rules"
-            hx-target="#custom-rules-list" hx-swap="innerHTML"
-            hx-on::after-request="if(event.detail.successful) this.reset()"
+      <form data-ajax="true" action="/firewall/rules" method="post"
+            data-target="#custom-rules-list" data-swap="innerHTML"
+            data-reset="true" data-error-target="#custom-rule-error"
             class="px-4 pb-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {{/* Row 1: chain, protocol, action, comment */}}
         <div>
           <label class="text-xs text-gray-500 block mb-1">Chain <span class="text-red-400">*</span></label>
           <select name="chain" required class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -60,7 +59,6 @@
           <input type="text" name="comment" placeholder="optional description"
                  class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        {{/* Row 2: src ip, dst ip, src port, dst port */}}
         <div>
           <label class="text-xs text-gray-500 block mb-1">Source IP</label>
           <input type="text" name="src_ip" placeholder="192.168.0.0/24"
@@ -81,7 +79,6 @@
           <input type="text" name="dst_port" placeholder="22"
                  class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 mono focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-        {{/* Row 3: in interface, out interface, submit */}}
         <div>
           <label class="text-xs text-gray-500 block mb-1">In Interface</label>
           <input type="text" name="in_iface" placeholder="ppp0"
@@ -93,7 +90,7 @@
                  class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 mono focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div class="col-span-2 sm:col-span-4 flex items-center justify-between pt-1">
-          <span id="custom-rule-error" class="text-xs"></span>
+          <span id="custom-rule-error" class="text-xs text-red-500"></span>
           <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">Add Rule</button>
         </div>
       </form>
@@ -105,9 +102,7 @@
     <div class="w-full md:w-52 shrink-0 space-y-1">
       <p class="text-xs text-gray-600 uppercase tracking-wider px-1 mb-2">/etc/firewall.d/</p>
       {{range .Files}}
-      <button hx-get="/firewall/script?file={{.Name}}"
-              hx-target="#raw-editor-area"
-              hx-swap="innerHTML"
+      <button onclick="loadFwFile(this, '{{.Name}}')"
               class="fw-file-btn w-full text-left px-3 py-2 rounded-md text-sm mono transition-colors
                      {{if eq .Name $.SelectedFile.Name}}bg-blue-600 text-white{{else}}text-gray-600 hover:bg-gray-100 hover:text-gray-900{{end}}">
         {{.Name}}
@@ -128,11 +123,10 @@
   {{end}}
 
   <div class="flex items-center gap-3 pt-2">
-    <button hx-post="/firewall/apply" hx-target="#apply-result" hx-swap="innerHTML"
+    <button onclick="fetchToast(this, 'POST', '/firewall/apply')"
             class="bg-amber-600 hover:bg-amber-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">
       Apply Firewall
     </button>
-    <span id="apply-result" class="text-sm"></span>
     <span class="text-xs text-gray-500">Runs /etc/firewall.sh · loads all firewall.d/ scripts</span>
   </div>
 </div>
@@ -168,17 +162,7 @@ function initCodeMirror() {
   ta.closest('form')?.addEventListener('submit', () => { ta.value = cmEditor.getValue(); });
 }
 
-document.addEventListener('DOMContentLoaded', initCodeMirror);
-document.addEventListener('htmx:afterSwap', e => {
-  if (e.detail.target.id === 'raw-editor-area') {
-    cmEditor = null; dirty = false; initCodeMirror();
-  }
-});
-
-// Update active button highlight when a file is selected
-document.addEventListener('htmx:beforeRequest', e => {
-  const btn = e.detail.elt;
-  if (!btn.classList.contains('fw-file-btn')) return;
+async function loadFwFile(btn, filename) {
   const inactive = 'text-gray-600 hover:bg-gray-100 hover:text-gray-900';
   const active   = 'bg-blue-600 text-white';
   document.querySelectorAll('.fw-file-btn').forEach(b => {
@@ -187,7 +171,11 @@ document.addEventListener('htmx:beforeRequest', e => {
   });
   btn.classList.remove(...inactive.split(' '));
   btn.classList.add(...active.split(' '));
-});
+  await fetchSwap(btn, 'GET', '/firewall/script?file=' + encodeURIComponent(filename), '#raw-editor-area', 'innerHTML');
+  cmEditor = null; dirty = false; initCodeMirror();
+}
+
+document.addEventListener('DOMContentLoaded', initCodeMirror);
 
 ['mode-ui-link','mode-raw-link'].forEach(id => {
   document.getElementById(id)?.addEventListener('click', e => {

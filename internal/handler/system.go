@@ -2,7 +2,6 @@ package handler
 
 import (
 	"database/sql"
-	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -59,28 +58,27 @@ func (h *SystemHandler) show(w http.ResponseWriter, r *http.Request) {
 
 func (h *SystemHandler) reboot(w http.ResponseWriter, r *http.Request) {
 	slog.Info("manual reboot requested")
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<span class="text-yellow-400 text-sm">Rebooting…</span>`)
+	writeJSON(w, true, "Rebooting…")
 	go system.ExecuteReboot()
 }
 
 func (h *SystemHandler) schedule(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	tod := r.FormValue("reboot_at")
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if !timeRE.MatchString(tod) {
-		fmt.Fprintf(w, `<span class="text-red-400 text-sm">Invalid time — use HH:MM (24h).</span>`)
+		writeJSON(w, false, "Invalid time — use HH:MM (24h).")
 		return
 	}
 	if err := system.ScheduleDailyReboot(h.db, tod); err != nil {
 		slog.Error("schedule daily reboot", "err", err)
-		fmt.Fprintf(w, `<span class="text-red-400 text-sm">Failed to save.</span>`)
+		writeJSON(w, false, "Failed to save.")
 		return
 	}
 	html, _ := web.RenderPartial(h.tmpl, "schedule_status", systemPage{
 		Scheduled:     true,
 		ScheduledTime: tod,
 	})
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
 }
 

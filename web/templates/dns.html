@@ -5,11 +5,10 @@
 <div class="space-y-8">
   <h1 class="text-xl font-semibold text-gray-900">DNS</h1>
 
-  {{/* ── Upstream Servers ────────────────────────────────────────── */}}
+  {{/* ── Upstream Servers ──────────────────────────────────────────────── */}}
   <section class="space-y-3">
     <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Upstream DNS Servers</h2>
-    <form hx-post="/dns/upstream"
-          hx-target="#upstream-result" hx-swap="innerHTML"
+    <form data-ajax="true" action="/dns/upstream" method="post" data-json="true"
           class="bg-white border border-gray-200 rounded-xl p-6 space-y-3">
       {{range .Upstream}}
       <div class="flex gap-2">
@@ -21,14 +20,13 @@
       {{end}}
       <button type="button" onclick="addServerField(this)"
               class="text-xs text-blue-400 hover:text-blue-300">+ Add server</button>
-      <div class="flex items-center justify-between pt-2">
-        <span id="upstream-result" class="text-sm"></span>
+      <div class="flex justify-end pt-2">
         <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">Save &amp; Reload</button>
       </div>
     </form>
   </section>
 
-  {{/* ── Local DNS Entries ───────────────────────────────────────── */}}
+  {{/* ── Local DNS Entries ───────────────────────────────────────────────── */}}
   <section class="space-y-3">
     <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Local DNS Entries</h2>
     <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -47,9 +45,9 @@
     </div>
     <details class="bg-white border border-gray-200 rounded-xl">
       <summary class="px-4 py-3 text-sm text-blue-400 cursor-pointer select-none hover:text-blue-300">+ Add local entry</summary>
-      <form hx-post="/dns/entries"
-            hx-target="#dns-entry-error" hx-swap="innerHTML"
-            hx-on::after-request="if(event.detail.successful) this.reset()"
+      <form data-ajax="true" action="/dns/entries" method="post"
+            data-target="#dns-entries" data-swap="beforeend"
+            data-reset="true" data-error-target="#dns-entry-error"
             class="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="text-xs text-gray-500 block mb-1">Hostname</label>
@@ -62,18 +60,20 @@
                  class="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div class="col-span-2 flex items-center justify-between">
-          <span id="dns-entry-error" class="text-xs"></span>
+          <span id="dns-entry-error" class="text-xs text-red-500"></span>
           <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">Add Entry</button>
         </div>
       </form>
     </details>
   </section>
 
-  {{/* ── DNS Test Lookup ─────────────────────────────────────────── */}}
+  {{/* ── DNS Test Lookup ─────────────────────────────────────────────────── */}}
   <section class="space-y-3">
     <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Test Lookup</h2>
     <div class="bg-white border border-gray-200 rounded-xl p-6">
-      <form hx-post="/dns/test" hx-target="#test-result" hx-swap="innerHTML" class="flex gap-3">
+      <form data-ajax="true" action="/dns/test" method="post"
+            data-target="#test-result" data-swap="innerHTML"
+            class="flex gap-3">
         <input type="text" name="hostname" placeholder="google.com"
                class="flex-1 bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 mono focus:outline-none focus:ring-2 focus:ring-blue-500">
         <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">Resolve</button>
@@ -82,11 +82,10 @@
     </div>
   </section>
 
-  {{/* ── DNS Statistics ───────────────────────────────────────────── */}}
+  {{/* ── DNS Statistics ────────────────────────────────────────────────────── */}}
   <section class="space-y-3">
     <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Statistics <span class="text-gray-400 normal-case font-normal">(since last restart)</span></h2>
 
-    {{/* Counter cards */}}
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
       <div class="bg-white border border-gray-200 rounded-xl p-4">
         <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Queries</p>
@@ -110,13 +109,10 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {{/* Forwarded by upstream */}}
       <div class="bg-white border border-gray-200 rounded-xl p-4">
         <p class="text-xs text-gray-500 uppercase tracking-wider mb-3">Forwarded by Upstream</p>
         <div id="dns-upstreams" class="space-y-1 text-sm text-gray-600">—</div>
       </div>
-
-      {{/* Top 10 domains chart */}}
       <div class="bg-white border border-gray-200 rounded-xl p-4">
         <p class="text-xs text-gray-500 uppercase tracking-wider mb-3">Top Domains</p>
         <canvas id="dns-domains-chart" height="200"></canvas>
@@ -138,8 +134,6 @@ function addServerField(btn) {
   div.querySelector('input').focus();
 }
 
-// DNS Stats live update — EventSource is independent of Chart so counters
-// always work even if chart.min.js fails to load.
 let domainsChart = null;
 try {
   domainsChart = new Chart(document.getElementById('dns-domains-chart'), {

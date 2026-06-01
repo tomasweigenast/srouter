@@ -89,9 +89,8 @@ func (h *PortForwardHandler) delete(w http.ResponseWriter, r *http.Request) {
 func (h *PortForwardHandler) apply(w http.ResponseWriter, r *http.Request) {
 	if err := h.fw.ApplyFirewall(); err != nil {
 		slog.Error("apply firewall (portforward)", "err", err)
-		http.Error(w, "failed to apply firewall", http.StatusInternalServerError)
+		writeJSON(w, false, "Failed to apply firewall.")
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`<span class="text-emerald-400 text-sm">Applied.</span>`))
+	writeJSON(w, true, "Applied.")
 }

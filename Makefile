@@ -77,8 +77,6 @@ css:
 
 copy-assets:
 	mkdir -p $(VENDOR)
-	cp node_modules/htmx.org/dist/htmx.min.js           $(VENDOR)/htmx.min.js
-	cp node_modules/htmx-ext-sse/sse.js                  $(VENDOR)/sse.js
 	cp node_modules/chart.js/dist/chart.umd.min.js       $(VENDOR)/chart.min.js
 	cp node_modules/codemirror/lib/codemirror.js          $(VENDOR)/codemirror.js
 	cp node_modules/codemirror/lib/codemirror.css         $(VENDOR)/codemirror.css

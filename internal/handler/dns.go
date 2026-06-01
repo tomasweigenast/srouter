@@ -69,13 +69,12 @@ func (h *DNSHandler) setUpstream(w http.ResponseWriter, r *http.Request) {
 			servers = append(servers, system.UpstreamServer{Address: strings.TrimSpace(addr)})
 		}
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.dns.SetUpstreamServers(servers); err != nil {
 		slog.Error("set upstream servers", "err", err)
-		fmt.Fprintf(w, `<span class="text-red-500 text-sm">Failed to save.</span>`)
+		writeJSON(w, false, "Failed to save.")
 		return
 	}
-	fmt.Fprintf(w, `<span class="text-emerald-600 text-sm">Saved &amp; reloaded.</span>`)
+	writeJSON(w, true, "Saved & reloaded.")
 }
 
 func (h *DNSHandler) addEntry(w http.ResponseWriter, r *http.Request) {
@@ -85,7 +84,7 @@ func (h *DNSHandler) addEntry(w http.ResponseWriter, r *http.Request) {
 		IP:       strings.TrimSpace(r.FormValue("ip")),
 	}
 	if entry.Hostname == "" || entry.IP == "" {
-		writeHTMXInlineError(w, "Hostname and IP are required.")
+		writeJSON(w, false, "Hostname and IP are required.")
 		return
 	}
 
@@ -93,21 +92,18 @@ func (h *DNSHandler) addEntry(w http.ResponseWriter, r *http.Request) {
 	existing, _ := h.dns.GetLocalEntries()
 	for _, e := range existing {
 		if strings.EqualFold(e.Hostname, entry.Hostname) {
-			writeHTMXInlineError(w, fmt.Sprintf("Hostname %q already exists.", entry.Hostname))
+			writeJSON(w, false, fmt.Sprintf("Hostname %q already exists.", entry.Hostname))
 			return
 		}
 	}
 
 	if err := h.dns.AddLocalEntry(entry); err != nil {
 		slog.Error("add local entry", "err", err)
-		writeHTMXInlineError(w, "Failed to add entry.")
+		writeJSON(w, false, "Failed to add entry.")
 		return
 	}
 	_ = h.dns.Reload()
 
-	// On success, retarget to the entries table
-	w.Header().Set("HX-Retarget", "#dns-entries")
-	w.Header().Set("HX-Reswap", "beforeend")
 	html, _ := web.RenderPartial(h.tmpl, "dns_entry_row", entry)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
@@ -152,7 +148,7 @@ func (h *DNSHandler) testLookup(w http.ResponseWriter, r *http.Request) {
 	result, upstream, err := h.dns.TestLookup(hostname)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err != nil {
-		fmt.Fprintf(w, `<span class="text-red-400">%s</span>`, err.Error())
+		fmt.Fprintf(w, `<p class="text-red-400 text-sm">%s</p>`, err.Error())
 		return
 	}
 	fmt.Fprintf(w,

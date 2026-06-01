@@ -79,7 +79,7 @@ func (h *DHCPHandler) addReservation(w http.ResponseWriter, r *http.Request) {
 		Hostname: strings.TrimSpace(r.FormValue("hostname")),
 	}
 	if res.MAC == "" || res.IP == "" {
-		writeHTMXInlineError(w, "MAC address and IP are required.")
+		writeJSON(w, false, "MAC address and IP are required.")
 		return
 	}
 
@@ -87,24 +87,21 @@ func (h *DHCPHandler) addReservation(w http.ResponseWriter, r *http.Request) {
 	existing, _ := h.dhcp.GetReservations()
 	for _, e := range existing {
 		if strings.EqualFold(e.MAC, res.MAC) {
-			writeHTMXInlineError(w, fmt.Sprintf("MAC %s is already reserved (%s).", res.MAC, e.IP))
+			writeJSON(w, false, fmt.Sprintf("MAC %s is already reserved (%s).", res.MAC, e.IP))
 			return
 		}
 		if e.IP == res.IP {
-			writeHTMXInlineError(w, fmt.Sprintf("IP %s is already reserved for %s.", res.IP, e.MAC))
+			writeJSON(w, false, fmt.Sprintf("IP %s is already reserved for %s.", res.IP, e.MAC))
 			return
 		}
 	}
 
 	if err := h.dhcp.AddReservation(res); err != nil {
 		slog.Error("add reservation", "err", err)
-		writeHTMXInlineError(w, "Failed to add reservation.")
+		writeJSON(w, false, "Failed to add reservation.")
 		return
 	}
 	_ = h.dhcp.ReloadDNSMasq()
-	// On success, redirect the swap to the table body
-	w.Header().Set("HX-Retarget", "#reservations-list")
-	w.Header().Set("HX-Reswap", "beforeend")
 	html, _ := web.RenderPartial(h.tmpl, "dhcp_reservation_row", res)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
@@ -137,17 +134,9 @@ func (h *DHCPHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.dhcp.SaveDHCPConfig(cfg); err != nil {
 		slog.Error("save dhcp config", "err", err)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<span class="text-red-500 text-sm">Failed to save config.</span>`))
+		writeJSON(w, false, "Failed to save config.")
 		return
 	}
 	_ = h.dhcp.ReloadDNSMasq()
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`<span class="text-emerald-600 text-sm">Saved &amp; reloaded.</span>`))
-}
-
-// writeHTMXInlineError writes an error message suitable for HTMX innerHTML swap.
-func writeHTMXInlineError(w http.ResponseWriter, msg string) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<span class="text-red-500 text-xs">%s</span>`, msg)
+	writeJSON(w, true, "Saved & reloaded.")
 }

@@ -11,10 +11,9 @@
   <td class="px-4 py-3 mono text-gray-300">{{.ExtPort}}</td>
   <td class="px-4 py-3 mono text-gray-600">{{.IntIP}}:{{.IntPort}}</td>
   <td class="px-4 py-3 text-right">
-    <button hx-delete="/portforward/{{.Name}}"
-            hx-target="closest tr"
-            hx-swap="outerHTML"
-            hx-confirm="Delete port forward '{{.Name}}'?"
+    <button onclick="deleteRowConfirm(this)"
+            data-url="/portforward/{{.Name}}"
+            data-confirm="Delete port forward &#39;{{.Name}}&#39;?"
             class="text-xs text-red-400 hover:text-red-300 transition-colors">Delete</button>
   </td>
 </tr>

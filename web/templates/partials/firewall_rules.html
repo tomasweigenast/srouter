@@ -39,14 +39,13 @@
 {{end}}
 
 {{define "firewall_raw_editor"}}
-<form hx-post="/firewall/script" hx-target="#save-result" hx-swap="innerHTML" class="space-y-3">
+<form data-ajax="true" action="/firewall/script" method="post" data-json="true" class="space-y-3">
   <input type="hidden" name="filename" value="{{.Name}}">
   <p class="text-xs text-gray-500 mono">{{.Path}}</p>
   {{/* CodeMirror mounts here; hidden textarea holds value for form submit */}}
   <textarea id="fw-content" name="content" style="display:none">{{.Content}}</textarea>
   <div class="border border-gray-200 rounded-xl overflow-hidden"></div>
   <div class="flex items-center justify-end gap-3">
-    <span id="save-result" class="text-sm"></span>
     <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">Save</button>
   </div>
 </form>
@@ -95,9 +94,8 @@
         </td>
         <td class="px-4 py-2.5 text-gray-500 text-xs italic">{{$r.Comment}}</td>
         <td class="px-4 py-2.5 text-right">
-          <button hx-delete="/firewall/rules/{{$i}}"
-                  hx-target="#custom-rules-list" hx-swap="innerHTML"
-                  hx-confirm="Delete this rule?"
+          <button onclick="deleteCustomRule(this)"
+                  data-idx="{{$i}}"
                   class="text-xs text-red-400 hover:text-red-300">Delete</button>
         </td>
       </tr>

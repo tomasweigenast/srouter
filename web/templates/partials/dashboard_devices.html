@@ -31,9 +31,7 @@
       <span class="inline-flex items-center gap-1">
         {{.Label}}
         <button
-          hx-delete="/dashboard/labels/{{.MAC}}"
-          hx-target="#device-{{macID .MAC}}"
-          hx-swap="outerHTML"
+          onclick="fetchReplace(this, 'DELETE', '/dashboard/labels/{{.MAC}}', null, '#device-{{macID .MAC}}')"
           class="text-gray-500 hover:text-red-400 transition-colors ml-1 text-xs"
           title="Remove label">✕</button>
       </span>
@@ -50,9 +48,11 @@
       </span>
       <span id="tag-form-{{macID .MAC}}" class="hidden">
         <form
-          hx-post="/dashboard/labels"
-          hx-target="#device-{{macID .MAC}}"
-          hx-swap="outerHTML"
+          data-ajax="true"
+          action="/dashboard/labels"
+          method="post"
+          data-target="#device-{{macID .MAC}}"
+          data-swap="outerHTML"
           class="flex items-center gap-1">
           <input type="hidden" name="mac" value="{{.MAC}}">
           <input type="text" name="label" placeholder="Label…" required
@@ -68,17 +68,12 @@
   <td class="px-4 py-3 text-right">
     {{if .Blocked}}
     <button
-      hx-delete="/dashboard/blocks/{{.MAC}}"
-      hx-target="#device-{{macID .MAC}}"
-      hx-swap="outerHTML"
+      onclick="fetchReplace(this, 'DELETE', '/dashboard/blocks/{{.MAC}}', null, '#device-{{macID .MAC}}')"
       class="text-xs text-red-400 font-medium hover:text-red-300 transition-colors"
       title="Unblock internet access">Blocked ✕</button>
     {{else}}
     <button
-      hx-post="/dashboard/blocks"
-      hx-vals='{"mac":"{{.MAC}}"}'
-      hx-target="#device-{{macID .MAC}}"
-      hx-swap="outerHTML"
+      onclick="fetchReplace(this, 'POST', '/dashboard/blocks', {mac:'{{.MAC}}'}, '#device-{{macID .MAC}}')"
       class="text-xs text-gray-400 hover:text-red-400 transition-colors"
       title="Block internet access">Block</button>
     {{end}}

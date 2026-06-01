@@ -23,8 +23,10 @@
 
   <details class="bg-white border border-gray-200 rounded-xl">
     <summary class="px-4 py-3 text-sm text-blue-400 cursor-pointer select-none hover:text-blue-300">+ Add device</summary>
-    <form hx-post="/wol/devices" hx-target="#wol-devices" hx-swap="beforeend"
-          hx-on::after-request="this.reset()" class="px-4 pb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <form data-ajax="true" action="/wol/devices" method="post"
+          data-target="#wol-devices" data-swap="beforeend"
+          data-reset="true"
+          class="px-4 pb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
       <div>
         <label class="text-xs text-gray-500 block mb-1">Name</label>
         <input type="text" name="name" placeholder="My PC" required
