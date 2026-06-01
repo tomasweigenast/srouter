@@ -42,6 +42,7 @@ build-linux:
 	@docker volume create srouter-npmcache >/dev/null
 	@echo "==> Building inside golang:1.25-alpine..."
 	docker run --rm \
+	  --platform linux/amd64 \
 	  -v "$(CURDIR)":/build \
 	  -v srouter-gomod:/root/go/pkg/mod \
 	  -v srouter-npmcache:/build/node_modules \
@@ -52,7 +53,7 @@ build-linux:
 	@mkdir -p $(BUILD_DIR)
 	tar -czf $(LINUX_ARCHIVE) \
 	  -C $(BUILD_DIR) srouter-linux \
-	  -C "$(CURDIR)" scripts/install.sh
+	  -C "$(CURDIR)/scripts" install.sh
 	@echo "==> Done: $(LINUX_ARCHIVE)"
 	@echo ""
 	@echo "Deploy: scp $(LINUX_ARCHIVE) $(ROUTER_HOST):~/ && ssh $(ROUTER_HOST) 'tar xzf srouter-linux.tar.gz && sh install.sh'"

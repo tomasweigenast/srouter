@@ -27,6 +27,12 @@ fi
 echo "  -> installing linux-pam..."
 apk add --no-cache linux-pam >/dev/null
 
+# Stop any running instance before replacing the binary
+echo "  -> stopping service..."
+rc-service srouter stop 2>/dev/null || true
+pkill -f "${DEST}" 2>/dev/null || true
+sleep 1
+
 # Binary
 echo "  -> copying binary..."
 cp "${BINARY}" "${DEST}"
@@ -67,14 +73,9 @@ EOF
   rc-update add srouter default 2>/dev/null || true
 fi
 
-# Start or restart
-if rc-service srouter status >/dev/null 2>&1; then
-  echo "  -> restarting service..."
-  rc-service srouter restart
-else
-  echo "  -> starting service..."
-  rc-service srouter start
-fi
+# Start fresh (always, since we stopped above)
+echo "  -> starting service..."
+rc-service srouter start
 
 echo ""
 echo "==> srouter installed and running."
