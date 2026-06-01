@@ -124,23 +124,71 @@ async function rebootNow(btn) {
   fetchToast(btn, 'POST', '/system/reboot');
 }
 
-// Trigger update install; polls for the service to come back up then reloads.
+// Install update: shows a spinner with live status text, polls /ping to detect
+// service-down then service-up, then reloads the page.
 async function installUpdate(btn) {
   if (!await confirmModal('Install the update and restart the service?')) return;
-  const res = await request('POST', '/system/update/install', null, btn);
-  let msg = 'Installing…';
-  try { const d = await res.json(); if (d.message) msg = d.message; } catch {}
-  toast(msg, res.ok ? 'success' : 'error');
-  if (!res.ok) return;
-  btn.disabled = true;
-  btn.textContent = 'Restarting…';
-  setTimeout(async function poll() {
+
+  const area     = document.getElementById('install-area');
+  const progress = document.getElementById('install-progress');
+  const statusEl = document.getElementById('install-status-text');
+
+  function setStatus(text) {
+    if (statusEl) statusEl.textContent = text;
+  }
+
+  // Switch to spinner view.
+  if (area)     area.classList.add('hidden');
+  if (progress) progress.classList.remove('hidden');
+  setStatus('Downloading update…');
+
+  // Trigger install on the server (returns immediately; install runs in background).
+  let res;
+  try {
+    res = await request('POST', '/system/update/install', null, btn);
+  } catch (err) {
+    toast('Request failed', 'error');
+    if (area)     area.classList.remove('hidden');
+    if (progress) progress.classList.add('hidden');
+    return;
+  }
+
+  if (!res.ok) {
+    let msg = 'Install failed';
+    try { const d = await res.json(); if (d.message) msg = d.message; } catch {}
+    toast(msg, 'error');
+    if (area)     area.classList.remove('hidden');
+    if (progress) progress.classList.add('hidden');
+    return;
+  }
+
+  setStatus('Waiting for service to restart…');
+
+  // Poll /ping until service goes down, then comes back up.
+  let wentDown = false;
+  (async function poll() {
     try {
-      const r = await fetch('/');
-      if (r.ok) { window.location.reload(); return; }
-    } catch {}
-    setTimeout(poll, 2000);
-  }, 4000);
+      const r = await fetch('/ping', { signal: AbortSignal.timeout(1000) });
+      if (r.status === 204) {
+        if (wentDown) {
+          // Service is back — reload to show new version.
+          setStatus('Update complete — reloading…');
+          setTimeout(() => window.location.reload(), 800);
+          return;
+        }
+        // Still up; keep waiting.
+        setTimeout(poll, 1000);
+        return;
+      }
+    } catch {
+      // fetch threw (connection refused / timeout) — service is down.
+    }
+    if (!wentDown) {
+      wentDown = true;
+      setStatus('Service restarting…');
+    }
+    setTimeout(poll, 1000);
+  })();
 }
 
 // ─── Delegated form handler ───────────────────────────────────────────────────

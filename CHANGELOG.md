@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.0.3
+
+### Fixed
+
+- Self-update restart now works reliably. The previous approach (`rc-service srouter restart`) caused OpenRC to mark the service as crashed when srouter exited with a non-zero code (10 s shutdown timeout). The fix replaces it with a fully-detached shell script (`Setsid: true`) that sends SIGTERM to srouter, waits until the process is gone, clears any OpenRC ghost state, and then starts the service cleanly.
+- Update install progress is now visible in the UI. Clicking "Install & restart" shows a spinner with live status text ("Downloading update…" → "Service restarting…" → "Update complete — reloading…"). The page polls `/ping` (new unauthenticated endpoint) to detect service-down and service-up transitions without requiring a valid auth session.
+- Added detailed structured logging (`slog.Info`) throughout the install flow so each step is visible in `/var/log/srouter.log`.
+
 ## v1.0.2
 
 ### Fixed

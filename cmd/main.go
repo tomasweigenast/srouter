@@ -135,6 +135,11 @@ func main() {
 	r.Handle("/static/*", http.StripPrefix("/static/",
 		http.FileServer(http.FS(web.StaticFS))))
 
+	// Unauthenticated liveness probe used by the update UI to detect restarts.
+	r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
 	// Root redirect
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/dashboard", http.StatusFound)
