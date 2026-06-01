@@ -32,6 +32,9 @@ echo "  -> stopping service..."
 rc-service srouter stop 2>/dev/null || true
 pkill -f "${DEST}" 2>/dev/null || true
 sleep 1
+# Clear stale OpenRC state and PID file so 'start' always works
+rc-service srouter zap 2>/dev/null || true
+rm -f /run/srouter.pid
 
 # Binary
 echo "  -> copying binary..."
