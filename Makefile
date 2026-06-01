@@ -56,7 +56,7 @@ build-linux: builder-image
 
 builder-image:
 	@echo "==> Building $(BUILDER_IMAGE) image (cached)..."
-	@docker build --platform linux/amd64 -t $(BUILDER_IMAGE) -f Dockerfile.build . -q
+	@docker build --platform linux/amd64 -t $(BUILDER_IMAGE) -f Dockerfile.build .
 	@echo "==> Packaging $(LINUX_ARCHIVE)..."
 	@mkdir -p $(BUILD_DIR)
 	tar -czf $(LINUX_ARCHIVE) \
