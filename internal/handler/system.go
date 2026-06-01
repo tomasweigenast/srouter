@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"html/template"
 	"log/slog"
@@ -119,7 +120,7 @@ func (h *SystemHandler) checkUpdate(w http.ResponseWriter, r *http.Request) {
 func (h *SystemHandler) installUpdate(w http.ResponseWriter, r *http.Request) {
 	slog.Info("update install requested")
 	go func() {
-		if err := h.updater.Install(r.Context()); err != nil {
+		if err := h.updater.Install(context.Background()); err != nil {
 			slog.Error("install update", "err", err)
 		}
 	}()
