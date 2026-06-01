@@ -40,6 +40,4 @@ VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
 CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
   -ldflags "-X github.com/tomasweigenast/srouter/internal/system.AppVersion=${VERSION}" \
   -o bin/srouter-linux ./cmd
-echo "  -> verifying binary..."
-file bin/srouter-linux
 echo "  -> done: bin/srouter-linux"
