@@ -20,6 +20,8 @@
     </form>
     <button id="autoscroll-btn" onclick="toggleAutoScroll()"
             class="text-xs text-blue-400 hover:text-blue-300 transition-colors whitespace-nowrap">Auto-scroll: ON</button>
+    <button id="wrap-btn" onclick="toggleWrap()"
+            class="text-xs text-gray-500 hover:text-gray-900 transition-colors whitespace-nowrap">Wrap: ON</button>
     <button onclick="document.getElementById('log-lines').innerHTML = ''"
             class="text-xs text-gray-500 hover:text-gray-900 transition-colors">Clear</button>
   </div>
@@ -32,7 +34,7 @@
       <div id="log-lines"
            sse-swap="logline"
            hx-swap="beforeend"
-           class="log-container h-[70vh] overflow-y-auto p-4 space-y-0.5 mono text-xs">
+           class="log-container h-[70vh] overflow-y-auto p-4 space-y-0.5 mono text-xs whitespace-pre-wrap break-all">
       </div>
     </div>
   </div>
@@ -42,6 +44,22 @@
 {{block "scripts" .}}
 <script>
 let autoScroll = true;
+let wrapLines = true;
+
+function toggleWrap() {
+  wrapLines = !wrapLines;
+  const el = document.getElementById('log-lines');
+  const btn = document.getElementById('wrap-btn');
+  if (wrapLines) {
+    el.classList.remove('whitespace-pre', 'overflow-x-auto');
+    el.classList.add('whitespace-pre-wrap', 'break-all');
+    btn.textContent = 'Wrap: ON';
+  } else {
+    el.classList.remove('whitespace-pre-wrap', 'break-all');
+    el.classList.add('whitespace-pre', 'overflow-x-auto');
+    btn.textContent = 'Wrap: OFF';
+  }
+}
 
 const logLines = document.getElementById('log-lines');
 
@@ -100,7 +118,8 @@ function reconnectSSE() {
   const form = document.getElementById('log-filter-form');
   const category = encodeURIComponent(form.querySelector('[name=category]').value);
   const url = '/logs/events?category=' + category;
-  const logLinesClass = logLines.className;
+  const wrapClass = wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre overflow-x-auto';
+  const logLinesClass = 'log-container h-[70vh] overflow-y-auto p-4 space-y-0.5 mono text-xs ' + wrapClass;
   const wrapper = document.getElementById('sse-wrapper');
   wrapper.innerHTML =
     '<div id="sse-container" hx-ext="sse" sse-connect="' + url + '" class="bg-white border border-gray-200 rounded-xl overflow-hidden">' +
