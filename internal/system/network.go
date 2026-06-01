@@ -186,7 +186,7 @@ var internetCache struct {
 	updatedAt time.Time
 }
 
-const internetCacheTTL = 15 * time.Second
+const internetCacheTTL = 60 * time.Second
 
 func CheckInternetConnectivity() (bool, error) {
 	internetCache.Lock()
@@ -204,6 +204,17 @@ func CheckInternetConnectivity() (bool, error) {
 		internetCache.Unlock()
 	}()
 	return internetCache.ok, nil
+}
+
+// ForceCheckInternet invalidates the cache and runs ping synchronously,
+// returning the fresh result. Used for on-demand checks from the UI.
+func ForceCheckInternet() (bool, error) {
+	ok := exec.Command("ping", "-c", "1", "-W", "2", "8.8.8.8").Run() == nil
+	internetCache.Lock()
+	internetCache.ok = ok
+	internetCache.updatedAt = time.Now()
+	internetCache.Unlock()
+	return ok, nil
 }
 
 func GetConntrackStats() (ConntrackStats, error) {

@@ -67,6 +67,12 @@
     </div>
     <p class="text-xs text-gray-500 mt-1">ping 8.8.8.8 failed</p>
     {{end}}
+    <button hx-post="/dashboard/check-internet"
+            hx-target="#stats-cards"
+            hx-swap="innerHTML"
+            class="mt-2 text-xs text-gray-400 hover:text-blue-400 transition-colors">
+      Check now
+    </button>
   </div>
 
 </div>

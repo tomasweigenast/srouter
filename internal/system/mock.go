@@ -48,6 +48,7 @@ func (MockSystem) ReconnectPPPoE() error {
 }
 
 func (MockSystem) CheckInternetConnectivity() (bool, error) { return true, nil }
+func (MockSystem) ForceCheckInternet() (bool, error)        { return true, nil }
 
 func (MockSystem) GetSystemInfo() (SystemInfo, error) {
 	return SystemInfo{

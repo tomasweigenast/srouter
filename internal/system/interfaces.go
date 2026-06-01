@@ -10,6 +10,7 @@ type Metrics interface {
 	GetSystemInfo() (SystemInfo, error)
 	GetRouterPackages() ([]RouterPackage, error)
 	CheckInternetConnectivity() (bool, error)
+	ForceCheckInternet() (bool, error)
 }
 
 // DHCP provides DHCP lease and reservation management via dnsmasq.

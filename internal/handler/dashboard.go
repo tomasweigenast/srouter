@@ -74,6 +74,7 @@ func (h *DashboardHandler) Register(r chi.Router) {
 	r.Delete("/dashboard/labels/{mac}", h.deleteLabel)
 	r.Post("/dashboard/blocks", h.blockDevice)
 	r.Delete("/dashboard/blocks/{mac}", h.unblockDevice)
+	r.Post("/dashboard/check-internet", h.checkInternet)
 }
 
 func (h *DashboardHandler) showDashboard(w http.ResponseWriter, r *http.Request) {
@@ -176,6 +177,18 @@ func (h *DashboardHandler) deleteLabel(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *DashboardHandler) checkInternet(w http.ResponseWriter, r *http.Request) {
+	h.metrics.ForceCheckInternet()
+	data, _ := h.gatherData()
+	html, err := web.RenderPartial(h.tmpl, "dashboard_stats", data)
+	if err != nil {
+		http.Error(w, "render error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(html))
 }
 
 func (h *DashboardHandler) blockDevice(w http.ResponseWriter, r *http.Request) {

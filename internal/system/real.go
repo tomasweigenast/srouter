@@ -10,7 +10,8 @@ func (RealSystem) GetMemory() (MemInfo, error)         { return GetMemory() }
 func (RealSystem) GetDisks() ([]DiskInfo, error)       { return GetDisks() }
 func (RealSystem) GetPPPoEStatus() (PPPoEStatus, error) { return GetPPPoEStatus() }
 func (RealSystem) ReconnectPPPoE() error                       { return ReconnectPPPoE() }
-func (RealSystem) CheckInternetConnectivity() (bool, error)    { return CheckInternetConnectivity() }
+func (RealSystem) CheckInternetConnectivity() (bool, error) { return CheckInternetConnectivity() }
+func (RealSystem) ForceCheckInternet() (bool, error)        { return ForceCheckInternet() }
 func (RealSystem) GetSystemInfo() (SystemInfo, error)  { return GetSystemInfo() }
 func (RealSystem) GetRouterPackages() ([]RouterPackage, error) { return GetRouterPackages() }
 
