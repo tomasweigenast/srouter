@@ -128,23 +128,31 @@ func (h *FirewallHandler) addCustomRule(w http.ResponseWriter, r *http.Request) 
 	rule := system.FirewallRule{
 		Chain:    r.FormValue("chain"),
 		Protocol: r.FormValue("protocol"),
+		InIface:  r.FormValue("in_iface"),
+		OutIface: r.FormValue("out_iface"),
 		SrcIP:    r.FormValue("src_ip"),
+		DstIP:    r.FormValue("dst_ip"),
+		SrcPort:  r.FormValue("src_port"),
 		DstPort:  r.FormValue("dst_port"),
 		Action:   r.FormValue("action"),
+		Comment:  r.FormValue("comment"),
 	}
 	if rule.Chain == "" || rule.Action == "" {
+		// Retarget to the error span on validation failure
+		w.Header().Set("HX-Retarget", "#custom-rule-error")
+		w.Header().Set("HX-Reswap", "innerHTML")
 		writeHTMXInlineError(w, "Chain and Action are required.")
 		return
 	}
 	if err := h.fw.AddCustomRule(rule); err != nil {
 		slog.Error("add custom rule", "err", err)
+		w.Header().Set("HX-Retarget", "#custom-rule-error")
+		w.Header().Set("HX-Reswap", "innerHTML")
 		writeHTMXInlineError(w, "Failed to add rule.")
 		return
 	}
 	rules, _ := h.fw.GetCustomRules()
 	html, _ := web.RenderPartial(h.tmpl, "firewall_custom_rules", rules)
-	w.Header().Set("HX-Retarget", "#custom-rules-list")
-	w.Header().Set("HX-Reswap", "innerHTML")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
 }
@@ -160,5 +168,8 @@ func (h *FirewallHandler) deleteCustomRule(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	rules, _ := h.fw.GetCustomRules()
+	html, _ := web.RenderPartial(h.tmpl, "firewall_custom_rules", rules)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(html))
 }

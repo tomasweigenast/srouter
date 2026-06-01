@@ -235,17 +235,25 @@ func (MockSystem) DeletePortForwardRule(name string) error {
 	return nil
 }
 
+var mockCustomRules = []FirewallRule{
+	{Chain: "INPUT", Protocol: "tcp", DstPort: "8080", Action: "ACCEPT"},
+}
+
 func (MockSystem) GetCustomRules() ([]FirewallRule, error) {
-	return []FirewallRule{
-		{Chain: "INPUT", Protocol: "tcp", DstPort: "8080", Action: "ACCEPT"},
-	}, nil
+	out := make([]FirewallRule, len(mockCustomRules))
+	copy(out, mockCustomRules)
+	return out, nil
 }
 func (MockSystem) AddCustomRule(r FirewallRule) error {
 	slog.Info("[mock] AddCustomRule", "chain", r.Chain, "action", r.Action)
+	mockCustomRules = append(mockCustomRules, r)
 	return nil
 }
 func (MockSystem) DeleteCustomRule(index int) error {
 	slog.Info("[mock] DeleteCustomRule", "index", index)
+	if index >= 0 && index < len(mockCustomRules) {
+		mockCustomRules = append(mockCustomRules[:index], mockCustomRules[index+1:]...)
+	}
 	return nil
 }
 

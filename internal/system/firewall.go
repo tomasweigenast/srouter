@@ -19,10 +19,14 @@ const (
 type FirewallRule struct {
 	Chain    string
 	Protocol string
+	InIface  string // -i interface
+	OutIface string // -o interface
 	SrcIP    string
 	DstIP    string
+	SrcPort  string
 	DstPort  string
 	Action   string
+	Comment  string // stored as a # comment above the iptables line
 }
 
 type FirewallFile struct {
@@ -278,7 +282,7 @@ func AddCustomRule(r FirewallRule) error {
 		return fmt.Errorf("open custom rules: %w", err)
 	}
 	defer f.Close()
-	_, err = fmt.Fprintf(f, "%s\n", cmd)
+	_, err = fmt.Fprintf(f, "%s\n", buildIPTablesCommandWithComment(r))
 	return err
 }
 
@@ -306,31 +310,31 @@ func parseIPTablesLine(line string) FirewallRule {
 	r := FirewallRule{}
 	fields := strings.Fields(line)
 	for i, f := range fields {
+		next := func() string {
+			if i+1 < len(fields) {
+				return fields[i+1]
+			}
+			return ""
+		}
 		switch f {
 		case "-A", "-I":
-			if i+1 < len(fields) {
-				r.Chain = fields[i+1]
-			}
+			r.Chain = next()
 		case "-p":
-			if i+1 < len(fields) {
-				r.Protocol = fields[i+1]
-			}
+			r.Protocol = next()
+		case "-i":
+			r.InIface = next()
+		case "-o":
+			r.OutIface = next()
 		case "-s":
-			if i+1 < len(fields) {
-				r.SrcIP = fields[i+1]
-			}
+			r.SrcIP = next()
 		case "-d":
-			if i+1 < len(fields) {
-				r.DstIP = fields[i+1]
-			}
+			r.DstIP = next()
+		case "--sport":
+			r.SrcPort = next()
 		case "--dport":
-			if i+1 < len(fields) {
-				r.DstPort = fields[i+1]
-			}
+			r.DstPort = next()
 		case "-j":
-			if i+1 < len(fields) {
-				r.Action = fields[i+1]
-			}
+			r.Action = next()
 		}
 	}
 	return r
@@ -344,16 +348,36 @@ func buildIPTablesCommand(r FirewallRule) string {
 	if r.Protocol != "" && r.Protocol != "all" {
 		cmd += " -p " + r.Protocol
 	}
+	if r.InIface != "" {
+		cmd += " -i " + r.InIface
+	}
+	if r.OutIface != "" {
+		cmd += " -o " + r.OutIface
+	}
 	if r.SrcIP != "" {
 		cmd += " -s " + r.SrcIP
 	}
 	if r.DstIP != "" {
 		cmd += " -d " + r.DstIP
 	}
+	if r.SrcPort != "" {
+		cmd += " --sport " + r.SrcPort
+	}
 	if r.DstPort != "" {
 		cmd += " --dport " + r.DstPort
 	}
 	cmd += " -j " + r.Action
+	return cmd
+}
+
+func buildIPTablesCommandWithComment(r FirewallRule) string {
+	cmd := buildIPTablesCommand(r)
+	if cmd == "" {
+		return ""
+	}
+	if r.Comment != "" {
+		return fmt.Sprintf("# %s\n%s", r.Comment, cmd)
+	}
 	return cmd
 }
 
