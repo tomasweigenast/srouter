@@ -30,8 +30,8 @@
             hx-swap="innerHTML"
             class="flex items-end gap-3 flex-wrap">
         <div>
-          <label class="text-xs text-gray-500 block mb-1">Date &amp; Time</label>
-          <input type="datetime-local" name="reboot_at"
+          <label class="text-xs text-gray-500 block mb-1">Time (24h) — runs every day</label>
+          <input type="time" name="reboot_at"
                  value="{{.ScheduledTime}}"
                  class="bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
@@ -60,7 +60,7 @@
 {{define "schedule_status"}}
 {{if .Scheduled}}
 <p class="text-sm text-emerald-600">
-  Reboot scheduled for <span class="mono font-medium">{{.ScheduledTime}}</span>.
+  Daily reboot at <span class="mono font-medium">{{.ScheduledTime}}</span> (every day).
   <button hx-delete="/system/schedule"
           hx-target="#schedule-status"
           hx-swap="innerHTML"

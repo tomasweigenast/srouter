@@ -6,7 +6,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
-	"time"
+	"regexp"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
@@ -15,6 +15,8 @@ import (
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var timeRE = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 
 type SystemHandler struct {
 	db   *sql.DB
@@ -41,21 +43,18 @@ type systemPage struct {
 	ActivePage    string
 	Username      string
 	Scheduled     bool
-	ScheduledTime string
+	ScheduledTime string // HH:MM
 }
 
 func (h *SystemHandler) show(w http.ResponseWriter, r *http.Request) {
 	sess, _ := session.FromContext(r.Context())
-	t, ok, _ := system.GetScheduledReboot(h.db)
-	page := systemPage{
-		ActivePage: "system",
-		Username:   sess.Username,
-		Scheduled:  ok,
-	}
-	if ok {
-		page.ScheduledTime = t.Format("2006-01-02T15:04")
-	}
-	web.Render(w, h.tmpl, page)
+	tod, ok, _ := system.GetScheduledReboot(h.db)
+	web.Render(w, h.tmpl, systemPage{
+		ActivePage:    "system",
+		Username:      sess.Username,
+		Scheduled:     ok,
+		ScheduledTime: tod,
+	})
 }
 
 func (h *SystemHandler) reboot(w http.ResponseWriter, r *http.Request) {
@@ -67,29 +66,21 @@ func (h *SystemHandler) reboot(w http.ResponseWriter, r *http.Request) {
 
 func (h *SystemHandler) schedule(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	raw := r.FormValue("reboot_at")
-	t, err := time.ParseInLocation("2006-01-02T15:04", raw, time.Local)
-	if err != nil {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<span class="text-red-400 text-sm">Invalid date/time.</span>`)
+	tod := r.FormValue("reboot_at")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if !timeRE.MatchString(tod) {
+		fmt.Fprintf(w, `<span class="text-red-400 text-sm">Invalid time — use HH:MM (24h).</span>`)
 		return
 	}
-	if t.Before(time.Now()) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<span class="text-red-400 text-sm">Time must be in the future.</span>`)
-		return
-	}
-	if err := system.ScheduleReboot(h.db, t); err != nil {
-		slog.Error("schedule reboot", "err", err)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := system.ScheduleDailyReboot(h.db, tod); err != nil {
+		slog.Error("schedule daily reboot", "err", err)
 		fmt.Fprintf(w, `<span class="text-red-400 text-sm">Failed to save.</span>`)
 		return
 	}
 	html, _ := web.RenderPartial(h.tmpl, "schedule_status", systemPage{
 		Scheduled:     true,
-		ScheduledTime: t.Format("2006-01-02T15:04"),
+		ScheduledTime: tod,
 	})
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
 }
 
