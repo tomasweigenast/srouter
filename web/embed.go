@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"strings"
 )
 
 //go:embed templates static
@@ -33,6 +34,8 @@ var FuncMap = template.FuncMap{
 	"mb": func(kb uint64) string { return fmt.Sprintf("%d", kb/1024) },
 	// gb converts bytes to GB with one decimal.
 	"gb": func(b uint64) string { return fmt.Sprintf("%.1f", float64(b)/1e9) },
+	// macID converts a MAC address (aa:bb:cc) to a CSS-safe ID (aa-bb-cc).
+	"macID": func(mac string) string { return strings.ReplaceAll(mac, ":", "-") },
 	// uptimeFmt formats seconds into "Xd Yh Zm" string.
 	"uptimeFmt": func(secs int64) string {
 		d := secs / 86400

@@ -6,30 +6,63 @@
       <tr class="border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
         <th class="px-4 py-3 text-left">IP Address</th>
         <th class="px-4 py-3 text-left">MAC Address</th>
-        <th class="px-4 py-3 text-left">Hostname</th>
-        <th class="px-4 py-3 text-left">Source</th>
+        <th class="px-4 py-3 text-left">Name</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-gray-100">
-      {{range .}}
-      <tr class="hover:bg-gray-100/50 transition-colors">
-        <td class="px-4 py-3 mono text-blue-300">{{.IP}}</td>
-        <td class="px-4 py-3 mono text-gray-600">{{.MAC}}</td>
-        <td class="px-4 py-3 text-gray-300">{{if .Hostname}}{{.Hostname}}{{else}}<span class="text-gray-600">—</span>{{end}}</td>
-        <td class="px-4 py-3">
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-                       {{if eq .Source "dhcp"}}bg-blue-100 text-blue-700{{else}}bg-gray-100 text-gray-600{{end}}">
-            {{.Source}}
-          </span>
-        </td>
-      </tr>
-      {{end}}
+      {{range .}}{{template "device_row" .}}{{end}}
     </tbody>
   </table>
 </div>
 {{else}}
 <div class="bg-white border border-gray-200 rounded-xl px-6 py-8 text-center text-gray-600 text-sm">
-  No devices detected.
+  No devices connected.
 </div>
 {{end}}
+{{end}}
+
+{{define "device_row"}}
+<tr class="hover:bg-gray-100/50 transition-colors" id="device-{{macID .MAC}}">
+  <td class="px-4 py-3 mono text-blue-300">{{.IP}}</td>
+  <td class="px-4 py-3 mono text-gray-600">{{.MAC}}</td>
+  <td class="px-4 py-3 text-gray-300">
+    {{if .Label}}
+      <span class="inline-flex items-center gap-1">
+        {{.Label}}
+        <button
+          hx-delete="/dashboard/labels/{{.MAC}}"
+          hx-target="#device-{{macID .MAC}}"
+          hx-swap="outerHTML"
+          class="text-gray-500 hover:text-red-400 transition-colors ml-1 text-xs"
+          title="Remove label">✕</button>
+      </span>
+    {{else if .Hostname}}
+      {{.Hostname}}
+    {{else}}
+      <span id="tag-toggle-{{macID .MAC}}">
+        <button
+          onclick="document.getElementById('tag-form-{{macID .MAC}}').classList.remove('hidden'); document.getElementById('tag-toggle-{{macID .MAC}}').classList.add('hidden')"
+          class="text-gray-500 hover:text-blue-400 transition-colors text-xs flex items-center gap-1">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M3 12l9 9a2 2 0 002.83 0l7-7A2 2 0 0024 11.17V4a1 1 0 00-1-1h-7.17a2 2 0 00-1.41.59z"/></svg>
+          Tag
+        </button>
+      </span>
+      <span id="tag-form-{{macID .MAC}}" class="hidden">
+        <form
+          hx-post="/dashboard/labels"
+          hx-target="#device-{{macID .MAC}}"
+          hx-swap="outerHTML"
+          class="flex items-center gap-1">
+          <input type="hidden" name="mac" value="{{.MAC}}">
+          <input type="text" name="label" placeholder="Label…" required
+                 class="bg-gray-100 border border-gray-300 rounded px-2 py-0.5 text-xs text-gray-900 w-28 focus:outline-none focus:ring-1 focus:ring-blue-500">
+          <button type="submit" class="text-xs text-blue-400 hover:text-blue-300">Save</button>
+          <button type="button"
+                  onclick="document.getElementById('tag-form-{{macID .MAC}}').classList.add('hidden'); document.getElementById('tag-toggle-{{macID .MAC}}').classList.remove('hidden')"
+                  class="text-xs text-gray-500 hover:text-gray-300">✕</button>
+        </form>
+      </span>
+    {{end}}
+  </td>
+</tr>
 {{end}}
