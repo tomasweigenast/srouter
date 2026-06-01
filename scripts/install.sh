@@ -18,16 +18,28 @@ fi
 
 echo "==> Installing srouter..."
 
-# Runtime dependency
 if ! command -v apk >/dev/null 2>&1; then
   echo "ERROR: this script is for Alpine Linux only" >&2
   exit 1
 fi
 
-echo "  -> installing linux-pam..."
-apk add --no-cache linux-pam >/dev/null
+# ── Runtime dependencies ─────────────────────────────────────────────────────
+echo "  -> installing dependencies..."
+apk add --no-cache \
+  linux-pam \
+  curl \
+  >/dev/null
 
-# Stop any running instance before replacing the binary
+# ── Logging daemons (needed for /var/log/messages) ───────────────────────────
+# syslog writes all service logs to /var/log/messages
+# klogd forwards kernel messages (iptables LOG rules) into syslog
+echo "  -> enabling syslog and klogd..."
+rc-update add syslog default 2>/dev/null || true
+rc-update add klogd  default 2>/dev/null || true
+rc-service syslog start 2>/dev/null || true
+rc-service klogd  start 2>/dev/null || true
+
+# ── Stop any running instance before replacing the binary ────────────────────
 echo "  -> stopping service..."
 rc-service srouter stop 2>/dev/null || true
 pkill -f "${DEST}" 2>/dev/null || true
@@ -36,16 +48,16 @@ sleep 1
 rc-service srouter zap 2>/dev/null || true
 rm -f /run/srouter.pid
 
-# Binary
+# ── Binary ───────────────────────────────────────────────────────────────────
 echo "  -> copying binary..."
 cp "${BINARY}" "${DEST}"
 chmod +x "${DEST}"
 
-# Directories
+# ── Directories ──────────────────────────────────────────────────────────────
 echo "  -> creating directories..."
 mkdir -p "${DATA_DIR}" "${CONFIG_DIR}"
 
-# Default config (skip if already exists)
+# ── Default config (skip if already exists) ──────────────────────────────────
 if [ ! -f "${CONFIG_DIR}/config.toml" ]; then
   echo "  -> writing default config..."
   cat > "${CONFIG_DIR}/config.toml" << 'EOF'
@@ -55,7 +67,7 @@ update_interval_ms = 2000
 EOF
 fi
 
-# OpenRC service (skip if already exists)
+# ── OpenRC service (skip if already exists) ──────────────────────────────────
 if [ ! -f "${SERVICE}" ]; then
   echo "  -> installing OpenRC service..."
   cat > "${SERVICE}" << 'EOF'
@@ -76,7 +88,7 @@ EOF
   rc-update add srouter default 2>/dev/null || true
 fi
 
-# Start fresh (always, since we stopped above)
+# ── Start ────────────────────────────────────────────────────────────────────
 echo "  -> starting service..."
 rc-service srouter start
 

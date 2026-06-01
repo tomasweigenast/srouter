@@ -1,13 +1,10 @@
 package system
 
 import (
-	"bytes"
-	"crypto/rand"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
-	"time"
+	"os/exec"
+	"strconv"
+	"strings"
 )
 
 type SpeedMeasurement struct {
@@ -15,58 +12,60 @@ type SpeedMeasurement struct {
 	Err  string
 }
 
-// MeasureLatency measures average TCP round-trip time to 8.8.8.8:53 (4 probes).
+// MeasureLatency pings 8.8.8.8 four times and returns average RTT in ms.
 func MeasureLatency() SpeedMeasurement {
-	const probes = 4
-	var total time.Duration
-	for i := 0; i < probes; i++ {
-		start := time.Now()
-		conn, err := net.DialTimeout("tcp", "8.8.8.8:53", 5*time.Second)
-		if err != nil {
-			return SpeedMeasurement{Err: fmt.Sprintf("latency probe failed: %v", err)}
-		}
-		total += time.Since(start)
-		conn.Close()
-		time.Sleep(100 * time.Millisecond)
+	out, err := exec.Command("ping", "-c", "4", "-q", "8.8.8.8").Output()
+	if err != nil {
+		return SpeedMeasurement{Err: fmt.Sprintf("ping failed: %v", err)}
 	}
-	return SpeedMeasurement{Mbps: float64(total.Milliseconds()) / probes}
+	// Parse "round-trip min/avg/max = 10.1/12.4/15.7 ms"
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.Contains(line, "min/avg/max") || strings.Contains(line, "round-trip") {
+			for _, field := range strings.Fields(line) {
+				if strings.Contains(field, "/") {
+					parts := strings.Split(field, "/")
+					if len(parts) >= 2 {
+						if avg, e := strconv.ParseFloat(parts[1], 64); e == nil {
+							return SpeedMeasurement{Mbps: avg}
+						}
+					}
+				}
+			}
+		}
+	}
+	return SpeedMeasurement{Err: "could not parse ping output"}
 }
 
 // MeasureDownload downloads 25 MB from Cloudflare and returns speed in Mbps.
 func MeasureDownload() SpeedMeasurement {
-	client := &http.Client{Timeout: 90 * time.Second}
-	start := time.Now()
-	resp, err := client.Get("https://speed.cloudflare.com/__down?bytes=25000000")
+	out, err := exec.Command("curl", "-o", "/dev/null", "-s",
+		"-w", "%{speed_download}",
+		"https://speed.cloudflare.com/__down?bytes=25000000",
+	).Output()
 	if err != nil {
-		return SpeedMeasurement{Err: fmt.Sprintf("download failed: %v", err)}
+		return SpeedMeasurement{Err: fmt.Sprintf("download test failed: %v", err)}
 	}
-	defer resp.Body.Close()
-	n, err := io.Copy(io.Discard, resp.Body)
-	if err != nil {
-		return SpeedMeasurement{Err: fmt.Sprintf("download read error: %v", err)}
+	bps, e := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
+	if e != nil {
+		return SpeedMeasurement{Err: "could not parse download speed"}
 	}
-	elapsed := time.Since(start).Seconds()
-	return SpeedMeasurement{Mbps: float64(n) * 8 / elapsed / 1_000_000}
+	return SpeedMeasurement{Mbps: bps * 8 / 1_000_000}
 }
 
 // MeasureUpload uploads 10 MB to Cloudflare and returns speed in Mbps.
 func MeasureUpload() SpeedMeasurement {
-	const size = 10 * 1024 * 1024
-	data := make([]byte, size)
-	rand.Read(data)
-
-	client := &http.Client{Timeout: 90 * time.Second}
-	start := time.Now()
-	resp, err := client.Post(
-		"https://speed.cloudflare.com/__up",
-		"application/octet-stream",
-		bytes.NewReader(data),
+	cmd := exec.Command("sh", "-c",
+		`dd if=/dev/urandom bs=1M count=10 2>/dev/null | `+
+			`curl -X POST --data-binary @- -o /dev/null -s -w "%{speed_upload}" `+
+			`"https://speed.cloudflare.com/__up"`,
 	)
+	out, err := cmd.Output()
 	if err != nil {
-		return SpeedMeasurement{Err: fmt.Sprintf("upload failed: %v", err)}
+		return SpeedMeasurement{Err: fmt.Sprintf("upload test failed: %v", err)}
 	}
-	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
-	elapsed := time.Since(start).Seconds()
-	return SpeedMeasurement{Mbps: float64(size) * 8 / elapsed / 1_000_000}
+	bps, e := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
+	if e != nil {
+		return SpeedMeasurement{Err: "could not parse upload speed"}
+	}
+	return SpeedMeasurement{Mbps: bps * 8 / 1_000_000}
 }
