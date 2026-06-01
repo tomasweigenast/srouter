@@ -19,12 +19,13 @@ import (
 	"github.com/tomasweigenast/srouter/web"
 )
 
-// Device is a currently-connected LAN device from ARP, enriched with DHCP hostname and optional label.
+// Device is a currently-connected LAN device from ARP, enriched with DHCP hostname, optional label, and block state.
 type Device struct {
 	IP       string
 	MAC      string
 	Hostname string
 	Label    string
+	Blocked  bool
 }
 
 type dashboardPage struct {
@@ -71,6 +72,8 @@ func (h *DashboardHandler) Register(r chi.Router) {
 	r.Get("/events/dashboard", h.sseDashboard)
 	r.Post("/dashboard/labels", h.setLabel)
 	r.Delete("/dashboard/labels/{mac}", h.deleteLabel)
+	r.Post("/dashboard/blocks", h.blockDevice)
+	r.Delete("/dashboard/blocks/{mac}", h.unblockDevice)
 }
 
 func (h *DashboardHandler) showDashboard(w http.ResponseWriter, r *http.Request) {
@@ -175,6 +178,54 @@ func (h *DashboardHandler) deleteLabel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *DashboardHandler) blockDevice(w http.ResponseWriter, r *http.Request) {
+	mac := r.FormValue("mac")
+	if mac == "" {
+		http.Error(w, "mac required", http.StatusBadRequest)
+		return
+	}
+	if err := system.BlockDevice(h.db, mac); err != nil {
+		slog.Error("block device", "mac", mac, "err", err)
+		http.Error(w, "failed", http.StatusInternalServerError)
+		return
+	}
+	if err := system.RebuildBlocksScript(h.db); err != nil {
+		slog.Error("rebuild blocks script", "err", err)
+	}
+	_, devices := h.gatherData()
+	for _, d := range devices {
+		if d.MAC == mac {
+			html, _ := web.RenderPartial(h.tmpl, "device_row", d)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(html))
+			return
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *DashboardHandler) unblockDevice(w http.ResponseWriter, r *http.Request) {
+	mac := chi.URLParam(r, "mac")
+	if err := system.UnblockDevice(h.db, mac); err != nil {
+		slog.Error("unblock device", "mac", mac, "err", err)
+		http.Error(w, "failed", http.StatusInternalServerError)
+		return
+	}
+	if err := system.RebuildBlocksScript(h.db); err != nil {
+		slog.Error("rebuild blocks script", "err", err)
+	}
+	_, devices := h.gatherData()
+	for _, d := range devices {
+		if d.MAC == mac {
+			html, _ := web.RenderPartial(h.tmpl, "device_row", d)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(html))
+			return
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
 	cpu, _ := h.metrics.GetCPU()
 	mem, _ := h.metrics.GetMemory()
@@ -186,6 +237,7 @@ func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
 	leases, _ := h.dhcp.GetLeases()
 	arp, _ := h.net.GetARPTable()
 	labels, _ := system.ListDeviceLabels(h.db)
+	blocked, _ := system.ListBlockedMACs(h.db)
 
 	// Index DHCP leases by MAC for hostname lookup
 	hostnameByMAC := map[string]string{}
@@ -195,14 +247,16 @@ func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
 		}
 	}
 
-	// ARP table = currently connected devices; enrich with hostname and label
+	// ARP table = currently connected devices; enrich with hostname, label, and block state
 	devices := make([]Device, 0, len(arp))
 	for _, a := range arp {
+		_, isBlocked := blocked[a.MAC]
 		devices = append(devices, Device{
 			IP:       a.IP,
 			MAC:      a.MAC,
 			Hostname: hostnameByMAC[a.MAC],
 			Label:    labels[a.MAC],
+			Blocked:  isBlocked,
 		})
 	}
 

@@ -28,6 +28,7 @@ echo "  -> installing dependencies..."
 apk add --no-cache \
   linux-pam \
   curl \
+  iptables \
   >/dev/null
 
 # ── Logging daemons (needed for /var/log/messages) ───────────────────────────
