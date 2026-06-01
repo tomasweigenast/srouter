@@ -189,9 +189,6 @@ func (h *DashboardHandler) blockDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
-	if err := system.RebuildBlocksScript(h.db); err != nil {
-		slog.Error("rebuild blocks script", "err", err)
-	}
 	_, devices := h.gatherData()
 	for _, d := range devices {
 		if d.MAC == mac {
@@ -210,9 +207,6 @@ func (h *DashboardHandler) unblockDevice(w http.ResponseWriter, r *http.Request)
 		slog.Error("unblock device", "mac", mac, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
-	}
-	if err := system.RebuildBlocksScript(h.db); err != nil {
-		slog.Error("rebuild blocks script", "err", err)
 	}
 	_, devices := h.gatherData()
 	for _, d := range devices {
