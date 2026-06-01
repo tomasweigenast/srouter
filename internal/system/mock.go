@@ -266,6 +266,22 @@ func (MockSystem) SendMagicPacket(mac string) error {
 	return nil
 }
 
+// NewMockDNSStatsCollector returns a collector seeded with plausible fake data.
+func NewMockDNSStatsCollector() *DNSStatsCollector {
+	c := &DNSStatsCollector{
+		byUpstream: map[string]int64{"1.1.1.1": 312, "8.8.8.8": 87},
+		byDomain: map[string]int64{
+			"google.com": 142, "youtube.com": 98, "spotify.com": 76,
+			"github.com": 54, "cloudflare.com": 43, "reddit.com": 31,
+		},
+		queries:   842,
+		cacheHits: 399,
+		forwarded: 399,
+		stopCh:    make(chan struct{}),
+	}
+	return c
+}
+
 // ── Mock SSE streams ──────────────────────────────────────────────────────
 
 // MockLogStream emits realistic fake log lines every 2 seconds.

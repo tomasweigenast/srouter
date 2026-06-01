@@ -81,10 +81,53 @@
       <div id="test-result" class="mt-3 min-h-5"></div>
     </div>
   </section>
+
+  {{/* ── DNS Statistics ───────────────────────────────────────────── */}}
+  <section class="space-y-3">
+    <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider">Statistics <span class="text-gray-400 normal-case font-normal">(since last restart)</span></h2>
+
+    {{/* Counter cards */}}
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Queries</p>
+        <p id="dns-total" class="text-2xl font-semibold text-gray-900">—</p>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Cache Hits</p>
+        <p id="dns-cache" class="text-2xl font-semibold text-emerald-600">—</p>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Forwarded</p>
+        <p id="dns-fwd" class="text-2xl font-semibold text-blue-500">—</p>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Cache Hit Rate</p>
+        <p id="dns-rate" class="text-2xl font-semibold text-gray-900">—</p>
+        <div class="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div id="dns-rate-bar" class="h-full bg-emerald-500 rounded-full" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {{/* Forwarded by upstream */}}
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-3">Forwarded by Upstream</p>
+        <div id="dns-upstreams" class="space-y-1 text-sm text-gray-600">—</div>
+      </div>
+
+      {{/* Top 10 domains chart */}}
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-3">Top Domains</p>
+        <canvas id="dns-domains-chart" height="200"></canvas>
+      </div>
+    </div>
+  </section>
 </div>
 {{end}}
 
 {{block "scripts" .}}
+<script src="/static/vendor/chart.min.js"></script>
 <script>
 function addServerField(btn) {
   const div = document.createElement('div');
@@ -94,5 +137,46 @@ function addServerField(btn) {
   btn.before(div);
   div.querySelector('input').focus();
 }
+
+// DNS Stats live update
+const domainsChart = new Chart(document.getElementById('dns-domains-chart'), {
+  type: 'bar',
+  data: { labels: [], datasets: [{ label: 'Queries', data: [], backgroundColor: 'rgba(59,130,246,0.6)', borderRadius: 4 }] },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { ticks: { font: { family: 'monospace', size: 11 } } } }
+  }
+});
+
+const dnsES = new EventSource('/dns/stats/events');
+dnsES.addEventListener('dnsstats', e => {
+  const d = JSON.parse(e.data);
+  document.getElementById('dns-total').textContent = d.TotalQueries.toLocaleString();
+  document.getElementById('dns-cache').textContent = d.CacheHits.toLocaleString();
+  document.getElementById('dns-fwd').textContent   = d.Forwarded.toLocaleString();
+  const rate = d.CacheHitRate.toFixed(1) + '%';
+  document.getElementById('dns-rate').textContent  = rate;
+  document.getElementById('dns-rate-bar').style.width = Math.min(d.CacheHitRate, 100) + '%';
+
+  // Upstreams table
+  const upDiv = document.getElementById('dns-upstreams');
+  if (d.ByUpstream && Object.keys(d.ByUpstream).length > 0) {
+    upDiv.innerHTML = Object.entries(d.ByUpstream)
+      .sort((a,b) => b[1]-a[1])
+      .map(([ip, n]) => `<div class="flex justify-between mono"><span>${ip}</span><span class="text-gray-900 font-medium">${n.toLocaleString()}</span></div>`)
+      .join('');
+  } else {
+    upDiv.textContent = 'No data yet';
+  }
+
+  // Top domains chart
+  if (d.TopDomains && d.TopDomains.length > 0) {
+    domainsChart.data.labels   = d.TopDomains.map(x => x.Domain);
+    domainsChart.data.datasets[0].data = d.TopDomains.map(x => x.Count);
+    domainsChart.update('none');
+  }
+});
 </script>
 {{end}}

@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
@@ -16,14 +18,16 @@ import (
 )
 
 type DNSHandler struct {
-	dns  system.DNS
-	tmpl *template.Template
+	dns   system.DNS
+	stats *system.DNSStatsCollector
+	tmpl  *template.Template
 }
 
 func NewDNSHandler(i do.Injector) (*DNSHandler, error) {
 	return &DNSHandler{
-		dns:  do.MustInvoke[system.DNS](i),
-		tmpl: web.MustParsePage("dns"),
+		dns:   do.MustInvoke[system.DNS](i),
+		stats: do.MustInvoke[*system.DNSStatsCollector](i),
+		tmpl:  web.MustParsePage("dns"),
 	}, nil
 }
 
@@ -34,6 +38,7 @@ func (h *DNSHandler) Routes() chi.Router {
 	r.Post("/entries", h.addEntry)
 	r.Delete("/entries/{hostname}", h.deleteEntry)
 	r.Post("/test", h.testLookup)
+	r.Get("/stats/events", h.statsSSE)
 	return r
 }
 
@@ -117,6 +122,29 @@ func (h *DNSHandler) deleteEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = h.dns.Reload()
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *DNSHandler) statsSSE(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := sseHeaders(w)
+	if !ok {
+		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		return
+	}
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-ticker.C:
+			data, err := json.Marshal(h.stats.Stats())
+			if err != nil {
+				continue
+			}
+			fmt.Fprintf(w, "event: dnsstats\ndata: %s\n\n", data)
+			flusher.Flush()
+		}
+	}
 }
 
 func (h *DNSHandler) testLookup(w http.ResponseWriter, r *http.Request) {
