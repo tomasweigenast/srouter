@@ -1,5 +1,5 @@
 #!/bin/sh
-# Runs INSIDE the Alpine Linux Docker container — do not run directly on macOS.
+# Runs INSIDE the Alpine Linux Docker container
 set -e
 
 echo "  -> build deps..."
