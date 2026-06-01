@@ -81,8 +81,8 @@ output_log="/var/log/srouter.log"
 error_log="/var/log/srouter.log"
 
 depend() {
-    need net dnsmasq
-    after firewall
+    need net
+    after dnsmasq firewall
 }
 EOF
   chmod +x "${SERVICE}"

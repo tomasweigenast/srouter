@@ -168,13 +168,14 @@ func main() {
 	<-stop
 	logger.Info("shutting down")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Close SSE streams first so their goroutines unblock and HTTP server
+	// connections drain immediately — otherwise Shutdown waits the full timeout.
+	_ = i.Shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Error("shutdown error", "err", err)
 	}
-
-	// Shut down SSE streams cleanly
-	_ = i.Shutdown()
 }
