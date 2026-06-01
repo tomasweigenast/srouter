@@ -17,6 +17,7 @@ curl -fsSL "https://github.com/oven-sh/bun/releases/latest/download/bun-linux-${
 unzip -o /tmp/bun.zip -d /tmp/bun-bin >/dev/null
 mv /tmp/bun-bin/bun-linux-${BUN_ARCH}-musl/bun /usr/local/bin/bun
 chmod +x /usr/local/bin/bun
+ln -sf /usr/local/bin/bun /usr/local/bin/bunx
 rm -rf /tmp/bun.zip /tmp/bun-bin
 
 echo "  -> frontend deps..."
