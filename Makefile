@@ -29,16 +29,38 @@ test-race:
 lint:
 	golangci-lint run ./...
 
+ROUTER_HOST ?= root@192.168.0.1
+LINUX_BINARY := $(BUILD_DIR)/srouter-linux
+LINUX_ARCHIVE := $(BUILD_DIR)/srouter-linux.tar.gz
+
 # Build for Alpine Linux inside a throwaway Docker container.
-# Produces bin/srouter-linux + bin/srouter-linux.tar.gz (binary + install.sh).
+# scripts/build-inner.sh runs inside the container.
 # Named volumes cache Go modules and node_modules between runs.
 build-linux:
-	@sh scripts/build-linux.sh
+	@echo "==> Creating Docker cache volumes..."
+	@docker volume create srouter-gomod    >/dev/null
+	@docker volume create srouter-npmcache >/dev/null
+	@echo "==> Building inside golang:1.25-alpine..."
+	docker run --rm \
+	  -v "$(CURDIR)":/build \
+	  -v srouter-gomod:/root/go/pkg/mod \
+	  -v srouter-npmcache:/build/node_modules \
+	  -w /build \
+	  golang:1.25-alpine \
+	  sh scripts/build-inner.sh
+	@echo "==> Packaging $(LINUX_ARCHIVE)..."
+	@mkdir -p $(BUILD_DIR)
+	tar -czf $(LINUX_ARCHIVE) \
+	  -C $(BUILD_DIR) srouter-linux \
+	  -C "$(CURDIR)" scripts/install.sh
+	@echo "==> Done: $(LINUX_ARCHIVE)"
+	@echo ""
+	@echo "Deploy: scp $(LINUX_ARCHIVE) $(ROUTER_HOST):~/ && ssh $(ROUTER_HOST) 'tar xzf srouter-linux.tar.gz && sh install.sh'"
 
-# Build and deploy directly to the router in one step.
-# Set ROUTER_HOST to override the default root@192.168.0.1.
-deploy:
-	@DEPLOY=1 sh scripts/build-linux.sh
+# Build + SCP + install on the router in one step.
+deploy: build-linux
+	scp $(LINUX_ARCHIVE) $(ROUTER_HOST):~/srouter-linux.tar.gz
+	ssh $(ROUTER_HOST) "tar xzf ~/srouter-linux.tar.gz && sh ~/install.sh"
 
 clean:
 	rm -rf $(BUILD_DIR) tmp $(VENDOR)

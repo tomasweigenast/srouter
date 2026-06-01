@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/msteinert/pam/v2 v2.1.0
 	github.com/pressly/goose/v3 v3.27.1
+	github.com/samber/do/v2 v2.0.0
 	modernc.org/sqlite v1.51.0
 )
 
@@ -17,7 +18,6 @@ require (
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/samber/do/v2 v2.0.0 // indirect
 	github.com/samber/go-type-to-string v1.8.0 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
