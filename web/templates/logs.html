@@ -18,6 +18,13 @@
              oninput="applySearch()"
              class="bg-gray-100 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 w-48">
     </form>
+    <div id="fw-view-toggle" class="flex items-center bg-gray-100 border border-gray-200 rounded-lg p-0.5 gap-0.5"
+         {{if ne .Filter.Category "firewall"}}style="display:none"{{end}}>
+      <button id="btn-classic" onclick="setFWViewMode(false)"
+              class="px-2.5 py-1 rounded-md text-xs font-medium transition-colors">Classic</button>
+      <button id="btn-parsed" onclick="setFWViewMode(true)"
+              class="px-2.5 py-1 rounded-md text-xs font-medium transition-colors">Parsed</button>
+    </div>
     <button id="autoscroll-btn" onclick="toggleAutoScroll()"
             class="text-xs text-blue-400 hover:text-blue-300 transition-colors whitespace-nowrap">Auto-scroll: ON</button>
     <button id="wrap-btn" onclick="toggleWrap()"
@@ -39,11 +46,14 @@
 let autoScroll = true;
 let wrapLines  = true;
 let logsES     = null;
+let parsedMode = localStorage.getItem('fw-parsed-mode') === '1';
 
 function connectLogsSSE(category) {
   if (logsES) logsES.close();
   const logLines = document.getElementById('log-lines');
-  logsES = new EventSource('/logs/events?category=' + encodeURIComponent(category || ''));
+  let url = '/logs/events?category=' + encodeURIComponent(category || '');
+  if (parsedMode && category === 'firewall') url += '&parsed=1';
+  logsES = new EventSource(url);
   logsES.addEventListener('logline', function(e) {
     logLines.insertAdjacentHTML('beforeend', e.data);
   });
@@ -52,7 +62,33 @@ function connectLogsSSE(category) {
 function reconnectSSE() {
   const category = document.querySelector('#log-filter-form [name=category]').value;
   document.getElementById('log-lines').innerHTML = '';
+  const toggle = document.getElementById('fw-view-toggle');
+  if (toggle) toggle.style.display = category === 'firewall' ? '' : 'none';
   connectLogsSSE(category);
+}
+
+function setFWViewMode(parsed) {
+  parsedMode = parsed;
+  localStorage.setItem('fw-parsed-mode', parsed ? '1' : '0');
+  updateFWToggleBtns();
+  document.getElementById('log-lines').innerHTML = '';
+  const category = document.querySelector('#log-filter-form [name=category]').value;
+  connectLogsSSE(category);
+}
+
+function updateFWToggleBtns() {
+  const classic = document.getElementById('btn-classic');
+  const parsed  = document.getElementById('btn-parsed');
+  if (!classic || !parsed) return;
+  const activeClass   = ['bg-white', 'text-gray-900', 'shadow-sm'];
+  const inactiveClass = ['text-gray-500', 'hover:text-gray-700'];
+  if (parsedMode) {
+    classic.classList.remove(...activeClass);   classic.classList.add(...inactiveClass);
+    parsed.classList.remove(...inactiveClass);  parsed.classList.add(...activeClass);
+  } else {
+    parsed.classList.remove(...activeClass);    parsed.classList.add(...inactiveClass);
+    classic.classList.remove(...inactiveClass); classic.classList.add(...activeClass);
+  }
 }
 
 function toggleWrap() {
@@ -117,6 +153,7 @@ function applySearch() {
 }
 
 // Connect on page load with the server-rendered initial category
+updateFWToggleBtns();
 connectLogsSSE(document.querySelector('#log-filter-form [name=category]').value);
 </script>
 {{end}}

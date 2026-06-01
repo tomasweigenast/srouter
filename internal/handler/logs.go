@@ -59,10 +59,12 @@ func (h *LogsHandler) sseStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	q := r.URL.Query()
 	filter := system.LogFilter{
-		Category: r.URL.Query().Get("category"),
+		Category: q.Get("category"),
 		// Search is applied client-side so existing lines can be filtered too
 	}
+	parsedFirewall := q.Get("parsed") == "1" && filter.Category == "firewall"
 
 	ch, unsub := h.logs.Subscribe(filter)
 	defer unsub()
@@ -76,7 +78,19 @@ func (h *LogsHandler) sseStream(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
-			lineHTML, err := web.RenderSSE(h.tmpl, "log_line", line)
+			var (
+				lineHTML string
+				err      error
+			)
+			if parsedFirewall {
+				if fw, ok := system.ParseFirewallLog(line); ok {
+					lineHTML, err = web.RenderSSE(h.tmpl, "firewall_log_row", fw)
+				} else {
+					lineHTML, err = web.RenderSSE(h.tmpl, "log_line", line)
+				}
+			} else {
+				lineHTML, err = web.RenderSSE(h.tmpl, "log_line", line)
+			}
 			if err != nil {
 				continue
 			}

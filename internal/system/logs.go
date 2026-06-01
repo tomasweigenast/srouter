@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,71 @@ type LogLine struct {
 	Category string
 	Time     string
 	Message  string
+}
+
+// FirewallDropLog holds the structured fields parsed from a kernel netfilter log line.
+type FirewallDropLog struct {
+	LogLine
+	Tag      string // e.g. "FW-INPUT-DROP", "MC-CONNECT"
+	TagClass string // pre-computed Tailwind CSS classes for the tag badge
+	InIface  string // IN=
+	OutIface string // OUT=
+	SrcIP    string // SRC=
+	DstIP    string // DST=
+	Proto    string // PROTO=
+	SrcPort  string // SPT=
+	DstPort  string // DPT=
+}
+
+var fwTagRE = regexp.MustCompile(`\[([A-Za-z0-9_-]+):\s*\]`)
+
+// ParseFirewallLog extracts structured netfilter fields from a firewall log line.
+// Returns (parsed, true) when the line matches the kernel log-prefix format.
+func ParseFirewallLog(line LogLine) (FirewallDropLog, bool) {
+	m := fwTagRE.FindStringSubmatch(line.Raw)
+	if m == nil {
+		return FirewallDropLog{}, false
+	}
+
+	fw := FirewallDropLog{
+		LogLine: line,
+		Tag:     strings.ToUpper(m[1]),
+	}
+
+	upper := strings.ToUpper(fw.Tag)
+	switch {
+	case strings.Contains(upper, "DROP"):
+		fw.TagClass = "bg-red-500/10 text-red-400 border-red-500/20"
+	case strings.Contains(upper, "CONNECT") || strings.Contains(upper, "ACCEPT"):
+		fw.TagClass = "bg-green-500/10 text-green-400 border-green-500/20"
+	default:
+		fw.TagClass = "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+	}
+
+	for _, field := range strings.Fields(line.Raw) {
+		kv := strings.SplitN(field, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		switch kv[0] {
+		case "IN":
+			fw.InIface = kv[1]
+		case "OUT":
+			fw.OutIface = kv[1]
+		case "SRC":
+			fw.SrcIP = kv[1]
+		case "DST":
+			fw.DstIP = kv[1]
+		case "PROTO":
+			fw.Proto = kv[1]
+		case "SPT":
+			fw.SrcPort = kv[1]
+		case "DPT":
+			fw.DstPort = kv[1]
+		}
+	}
+
+	return fw, true
 }
 
 type LogFilter struct {

@@ -1,0 +1,15 @@
+{{define "firewall_log_row"}}
+<div class="log-line py-1 flex items-center gap-2 flex-wrap whitespace-normal" data-category="firewall">
+  <span class="text-gray-400 select-none shrink-0">{{.Time}}</span>
+  <span class="inline-flex items-center px-1.5 py-0.5 rounded border text-xs font-medium shrink-0 {{.TagClass}}">
+    {{.Tag}}
+  </span>
+  {{if .SrcIP}}<span class="text-gray-300">{{.SrcIP}}</span>{{end}}
+  {{if .SrcPort}}<span class="text-gray-500">:{{.SrcPort}}</span>{{end}}
+  {{if or .SrcIP .DstIP}}<span class="text-gray-600 select-none">→</span>{{end}}
+  {{if .DstIP}}<span class="text-gray-300">{{.DstIP}}</span>{{end}}
+  {{if .DstPort}}<span class="text-gray-500">:{{.DstPort}}</span>{{end}}
+  {{if .Proto}}<span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-xs shrink-0">{{.Proto}}</span>{{end}}
+  {{if .InIface}}<span class="text-gray-600 text-xs shrink-0">via {{.InIface}}</span>{{end}}
+</div>
+{{end}}

@@ -300,12 +300,15 @@ func (m *MockLogStream) Subscribe(filter LogFilter) (<-chan LogLine, func()) {
 
 	rawLines := []string{
 		"Jun  1 12:00:01 router dnsmasq-dhcp: DHCPDISCOVER(lan) aa:bb:cc:dd:ee:01",
-		"Jun  1 12:00:05 router kernel: [FW-INPUT-DROP: ] IN=ppp0 OUT= SRC=1.2.3.4 PROTO=TCP DPT=22",
+		"Jun  1 12:00:05 router kernel: [FW-INPUT-DROP: ] IN=ppp0 OUT= SRC=1.2.3.4 DST=200.123.54.72 PROTO=TCP SPT=54321 DPT=22",
 		"Jun  1 12:00:10 router dnsmasq[1234]: cached google.com is 142.250.64.14",
 		"Jun  1 12:00:15 router pppd[999]: LCP: timeout sending Config-Requests",
 		"Jun  1 12:00:20 router dnsmasq-dhcp: DHCPACK(lan) 192.168.0.101 aa:bb:cc:dd:ee:01 my-laptop",
-		"Jun  1 12:00:25 router kernel: [MC-CONNECT: ] IN=ppp0 SRC=203.0.113.45 DST=200.123.54.72 PROTO=TCP DPT=25565",
+		"Jun  1 12:00:25 router kernel: [MC-CONNECT: ] IN=ppp0 OUT= SRC=203.0.113.45 DST=200.123.54.72 PROTO=TCP SPT=41820 DPT=25565",
 		"Jun  1 12:00:30 router dnsmasq[1234]: query[A] youtube.com from 192.168.0.101",
+		"Jun  1 12:00:35 router kernel: [FW-INPUT-DROP: ] IN=ppp0 OUT= SRC=45.33.32.156 DST=200.123.54.72 PROTO=UDP SPT=1900 DPT=1900",
+		"Jun  1 12:00:40 router kernel: [FW-INPUT-DROP: ] IN=ppp0 OUT= SRC=192.241.240.90 DST=200.123.54.72 PROTO=TCP SPT=60521 DPT=3389",
+		"Jun  1 12:00:45 router kernel: [FW-FORWARD-DROP: ] IN=ppp0 OUT=lan SRC=5.188.206.16 DST=192.168.0.10 PROTO=TCP SPT=45678 DPT=8080",
 	}
 
 	go func() {
