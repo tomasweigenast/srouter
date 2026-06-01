@@ -6,6 +6,8 @@
   <title>{{block "title" .}}srouter{{end}}</title>
   <link rel="stylesheet" href="/static/vendor/tailwind.css">
   <link rel="stylesheet" href="/static/app.css">
+  {{/* Safelist: classes used in Go inline HTML strings, not in templates */}}
+  <span class="hidden text-emerald-600 text-red-500 text-red-400 text-red-300 hover:text-red-300"></span>
   <script src="/static/vendor/htmx.min.js"></script>
   <script src="/static/vendor/sse.js"></script>
 </head>

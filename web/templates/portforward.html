@@ -16,20 +16,21 @@
 
   <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
     <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
-          <th class="px-4 py-3 text-left">Name</th>
-          <th class="px-4 py-3 text-left">Protocol</th>
-          <th class="px-4 py-3 text-left">Ext. Port</th>
-          <th class="px-4 py-3 text-left">Internal</th>
-          <th class="px-4 py-3 w-16"></th>
-        </tr>
-      </thead>
-      <tbody id="pf-rules" class="divide-y divide-gray-100">
-        {{template "portforward_rows" .Rules}}
-      </tbody>
-    </table>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
+            <th class="px-4 py-3 text-left">Name</th>
+            <th class="px-4 py-3 text-left">Protocol</th>
+            <th class="px-4 py-3 text-left">Ext. Port</th>
+            <th class="px-4 py-3 text-left">Internal</th>
+            <th class="px-4 py-3 w-16"></th>
+          </tr>
+        </thead>
+        <tbody id="pf-rules" class="divide-y divide-gray-100">
+          {{template "portforward_rows" .Rules}}
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <details class="bg-white border border-gray-200 rounded-xl">

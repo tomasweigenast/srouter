@@ -80,7 +80,7 @@
       <button hx-get="/firewall/script?file={{.Name}}"
               hx-target="#raw-editor-area"
               hx-swap="innerHTML"
-              class="w-full text-left px-3 py-2 rounded-md text-sm mono transition-colors
+              class="fw-file-btn w-full text-left px-3 py-2 rounded-md text-sm mono transition-colors
                      {{if eq .Name $.SelectedFile.Name}}bg-blue-600 text-white{{else}}text-gray-600 hover:bg-gray-100 hover:text-gray-900{{end}}">
         {{.Name}}
       </button>
@@ -145,6 +145,20 @@ document.addEventListener('htmx:afterSwap', e => {
   if (e.detail.target.id === 'raw-editor-area') {
     cmEditor = null; dirty = false; initCodeMirror();
   }
+});
+
+// Update active button highlight when a file is selected
+document.addEventListener('htmx:beforeRequest', e => {
+  const btn = e.detail.elt;
+  if (!btn.classList.contains('fw-file-btn')) return;
+  const inactive = 'text-gray-600 hover:bg-gray-100 hover:text-gray-900';
+  const active   = 'bg-blue-600 text-white';
+  document.querySelectorAll('.fw-file-btn').forEach(b => {
+    b.classList.remove(...active.split(' '));
+    b.classList.add(...inactive.split(' '));
+  });
+  btn.classList.remove(...inactive.split(' '));
+  btn.classList.add(...active.split(' '));
 });
 
 ['mode-ui-link','mode-raw-link'].forEach(id => {
