@@ -52,34 +52,38 @@ func (c *DNSStatsCollector) run(logs LogStream) {
 			if !ok {
 				return
 			}
-			c.parseLine(line.Message)
+			// Use Raw so we never depend on the Message field split position
+			c.parseLine(line.Raw)
 		}
 	}
 }
 
-func (c *DNSStatsCollector) parseLine(msg string) {
-	lower := strings.ToLower(msg)
+func (c *DNSStatsCollector) parseLine(raw string) {
+	lower := strings.ToLower(raw)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	switch {
 	case strings.Contains(lower, "query["):
-		// "query[A] google.com from 192.168.0.x"
+		// "dnsmasq[pid]: query[A] google.com from 192.168.0.x"
+		// domain follows the closing "] "
 		c.queries++
-		if domain := extractField(msg, 1); domain != "" {
-			c.byDomain[domain]++
+		if i := strings.Index(lower, "] "); i >= 0 {
+			if domain := firstWord(raw[i+2:]); domain != "" {
+				c.byDomain[domain]++
+			}
 		}
 	case strings.Contains(lower, "cached "):
-		// "cached google.com is 1.2.3.4"
+		// "dnsmasq[pid]: cached google.com is 1.2.3.4"
 		c.cacheHits++
 		c.queries++
-		if domain := extractWordAfter(msg, "cached"); domain != "" {
+		if domain := extractWordAfter(raw, "cached"); domain != "" {
 			c.byDomain[domain]++
 		}
 	case strings.Contains(lower, "forwarded "):
-		// "forwarded google.com to 1.1.1.1"
+		// "dnsmasq[pid]: forwarded google.com to 1.1.1.1"
 		c.forwarded++
-		if upstream := extractWordAfter(msg, "to"); upstream != "" {
+		if upstream := extractWordAfter(raw, " to "); upstream != "" {
 			c.byUpstream[upstream]++
 		}
 	}
@@ -122,26 +126,21 @@ func (c *DNSStatsCollector) Stop() {
 	close(c.stopCh)
 }
 
-// extractField returns the nth space-delimited word (0-based) from s.
-func extractField(s string, n int) string {
-	fields := strings.Fields(s)
-	if n < len(fields) {
-		return strings.TrimSuffix(fields[n], ".")
+// firstWord returns the first whitespace-delimited token from s.
+func firstWord(s string) string {
+	s = strings.TrimSpace(s)
+	if i := strings.IndexAny(s, " \t"); i >= 0 {
+		return s[:i]
 	}
-	return ""
+	return s
 }
 
-// extractWordAfter returns the word immediately following keyword in s.
+// extractWordAfter returns the word immediately following keyword in s (case-insensitive).
 func extractWordAfter(s, keyword string) string {
 	lower := strings.ToLower(s)
 	idx := strings.Index(lower, strings.ToLower(keyword))
 	if idx < 0 {
 		return ""
 	}
-	rest := strings.TrimSpace(s[idx+len(keyword):])
-	fields := strings.Fields(rest)
-	if len(fields) == 0 {
-		return ""
-	}
-	return fields[0]
+	return firstWord(s[idx+len(keyword):])
 }
