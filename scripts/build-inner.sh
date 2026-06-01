@@ -1,24 +1,7 @@
 #!/bin/sh
-# Runs INSIDE the Alpine Linux Docker container
+# Runs INSIDE the srouter-builder Docker container.
+# gcc, musl-dev, linux-pam-dev and bun are pre-installed in the image.
 set -e
-
-echo "  -> build deps..."
-apk add --no-cache gcc linux-pam-dev musl-dev curl git unzip 2>/dev/null
-
-echo "  -> bun (musl binary)..."
-ARCH=$(uname -m)
-case "$ARCH" in
-  x86_64)          BUN_ARCH="x64" ;;
-  aarch64 | arm64) BUN_ARCH="aarch64" ;;
-  *) echo "unsupported arch: $ARCH"; exit 1 ;;
-esac
-curl -fsSL "https://github.com/oven-sh/bun/releases/latest/download/bun-linux-${BUN_ARCH}-musl.zip" \
-  -o /tmp/bun.zip
-unzip -o /tmp/bun.zip -d /tmp/bun-bin >/dev/null
-mv /tmp/bun-bin/bun-linux-${BUN_ARCH}-musl/bun /usr/local/bin/bun
-chmod +x /usr/local/bin/bun
-ln -sf /usr/local/bin/bun /usr/local/bin/bunx
-rm -rf /tmp/bun.zip /tmp/bun-bin
 
 echo "  -> frontend deps..."
 bun install --silent

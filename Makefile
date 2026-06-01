@@ -36,19 +36,27 @@ LINUX_ARCHIVE := $(BUILD_DIR)/srouter-linux.tar.gz
 # Build for Alpine Linux inside a throwaway Docker container.
 # scripts/build-inner.sh runs inside the container.
 # Named volumes cache Go modules and node_modules between runs.
-build-linux:
+BUILDER_IMAGE := srouter-builder
+
+build-linux: builder-image
 	@echo "==> Creating Docker cache volumes..."
 	@docker volume create srouter-gomod    >/dev/null
+	@docker volume create srouter-gobuild  >/dev/null
 	@docker volume create srouter-npmcache >/dev/null
-	@echo "==> Building inside golang:1.25-alpine..."
+	@echo "==> Building inside $(BUILDER_IMAGE)..."
 	docker run --rm \
 	  --platform linux/amd64 \
 	  -v "$(CURDIR)":/build \
 	  -v srouter-gomod:/root/go/pkg/mod \
+	  -v srouter-gobuild:/root/.cache/go-build \
 	  -v srouter-npmcache:/build/node_modules \
 	  -w /build \
-	  golang:1.25-alpine \
+	  $(BUILDER_IMAGE) \
 	  sh scripts/build-inner.sh
+
+builder-image:
+	@echo "==> Building $(BUILDER_IMAGE) image (cached)..."
+	@docker build --platform linux/amd64 -t $(BUILDER_IMAGE) -f Dockerfile.build . -q
 	@echo "==> Packaging $(LINUX_ARCHIVE)..."
 	@mkdir -p $(BUILD_DIR)
 	tar -czf $(LINUX_ARCHIVE) \
