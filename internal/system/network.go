@@ -184,7 +184,11 @@ var internetCache struct {
 	sync.Mutex
 	ok        bool
 	updatedAt time.Time
-}
+} = struct {
+	sync.Mutex
+	ok        bool
+	updatedAt time.Time
+}{ok: true}
 
 const internetCacheTTL = 60 * time.Second
 
