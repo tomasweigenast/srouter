@@ -61,10 +61,47 @@ jobs:
             -C bin srouter-linux \
             -C "${{ github.workspace }}/scripts" install.sh
 
+      - name: Build release notes
+        id: notes
+        run: |
+          TAG="${{ github.ref_name }}"
+
+          # Commits since the previous tag (or all commits if this is the first tag).
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log --oneline --no-merges "${PREV_TAG}..HEAD" \
+              --pretty=format:"- %s (%h)")
+          else
+            COMMITS=$(git log --oneline --no-merges \
+              --pretty=format:"- %s (%h)")
+          fi
+
+          # Optional: pull matching section from CHANGELOG.md.
+          # Expects a heading like "## v1.2.3" or "## [v1.2.3]".
+          CHANGELOG=""
+          if [ -f CHANGELOG.md ]; then
+            CHANGELOG=$(awk \
+              "/^## \[?${TAG}\]?/{found=1; next} found && /^## /{exit} found{print}" \
+              CHANGELOG.md | sed '/^[[:space:]]*$/d')
+          fi
+
+          # Compose body: changelog section first (if any), then commit list.
+          BODY=""
+          if [ -n "$CHANGELOG" ]; then
+            BODY="${CHANGELOG}"$'\n\n'
+          fi
+          if [ -n "$COMMITS" ]; then
+            BODY="${BODY}### Commits"$'\n'"${COMMITS}"
+          fi
+
+          # Write to a file to avoid quoting issues with multiline strings.
+          printf '%s' "$BODY" > /tmp/release-notes.md
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3.0.0
         with:
+          name: ${{ github.ref_name }}
+          body_path: /tmp/release-notes.md
           files: |
             bin/srouter-linux
             bin/srouter-linux.tar.gz
-          generate_release_notes: true
