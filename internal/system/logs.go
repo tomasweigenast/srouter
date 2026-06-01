@@ -26,6 +26,8 @@ type logSubscriber struct {
 	filter LogFilter
 }
 
+const historySize = 300
+
 // LogBroadcaster tails a log file and fans out filtered lines to subscribers.
 type LogBroadcaster struct {
 	path        string
@@ -33,6 +35,7 @@ type LogBroadcaster struct {
 	subscribers map[int]*logSubscriber
 	nextID      int
 	stopCh      chan struct{}
+	history     []LogLine // ring buffer of recent lines for new subscribers
 }
 
 func NewLogBroadcaster(path string) *LogBroadcaster {
@@ -49,7 +52,13 @@ func (lb *LogBroadcaster) Subscribe(f LogFilter) (<-chan LogLine, func()) {
 	lb.mu.Lock()
 	id := lb.nextID
 	lb.nextID++
-	sub := &logSubscriber{ch: make(chan LogLine, 32), filter: f}
+	sub := &logSubscriber{ch: make(chan LogLine, historySize+64), filter: f}
+	// Replay recent history matching the filter so the page fills immediately
+	for _, line := range lb.history {
+		if matchesFilter(line, f) {
+			sub.ch <- line
+		}
+	}
 	lb.subscribers[id] = sub
 	lb.mu.Unlock()
 
@@ -100,6 +109,10 @@ func (lb *LogBroadcaster) run() {
 		parsed := ParseLogLine(line)
 
 		lb.mu.Lock()
+		lb.history = append(lb.history, parsed)
+		if len(lb.history) > historySize {
+			lb.history = lb.history[len(lb.history)-historySize:]
+		}
 		for _, sub := range lb.subscribers {
 			if matchesFilter(parsed, sub.filter) {
 				select {
