@@ -78,9 +78,18 @@ func main() {
 	do.Provide(i, handler.NewBandwidthHandler)
 	do.Provide(i, handler.NewWoLHandler)
 	do.Provide(i, handler.NewSpeedtestHandler)
+	do.Provide(i, handler.NewSystemHandler)
+	do.Provide(i, func(i do.Injector) (*system.DNSStatsCollector, error) {
+		logs := do.MustInvoke[system.LogStream](i)
+		if do.MustInvoke[config.Config](i).DevMode {
+			return system.NewMockDNSStatsCollector(), nil
+		}
+		return system.NewDNSStatsCollector(logs), nil
+	})
 
 	// ── Background workers ───────────────────────────────────────────────
 	go session.CleanupLoop(database, time.Hour)
+	go system.RebootWatchLoop(database)
 
 	// ── HTTP router ──────────────────────────────────────────────────────
 	r := chi.NewRouter()
@@ -97,6 +106,7 @@ func main() {
 	bwHandler        := do.MustInvoke[*handler.BandwidthHandler](i)
 	wolHandler          := do.MustInvoke[*handler.WoLHandler](i)
 	speedtestHandler    := do.MustInvoke[*handler.SpeedtestHandler](i)
+	systemHandler       := do.MustInvoke[*handler.SystemHandler](i)
 
 	// Public routes
 	authHandler.Register(r)
@@ -114,6 +124,7 @@ func main() {
 		r.Mount("/bandwidth", bwHandler.Routes())
 		r.Mount("/wol", wolHandler.Routes())
 		r.Mount("/speedtest", speedtestHandler.Routes())
+		r.Mount("/system", systemHandler.Routes())
 	})
 
 	// Static files
