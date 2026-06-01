@@ -176,6 +176,11 @@ func GetRoutes() ([]Route, error) {
 	return routes, nil
 }
 
+func CheckInternetConnectivity() (bool, error) {
+	err := exec.Command("ping", "-c", "1", "-W", "2", "8.8.8.8").Run()
+	return err == nil, nil
+}
+
 func GetConntrackStats() (ConntrackStats, error) {
 	readInt := func(path string) int {
 		b, err := os.ReadFile(path)

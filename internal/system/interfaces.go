@@ -9,6 +9,7 @@ type Metrics interface {
 	ReconnectPPPoE() error
 	GetSystemInfo() (SystemInfo, error)
 	GetRouterPackages() ([]RouterPackage, error)
+	CheckInternetConnectivity() (bool, error)
 }
 
 // DHCP provides DHCP lease and reservation management via dnsmasq.
@@ -29,7 +30,7 @@ type DNS interface {
 	GetLocalEntries() ([]LocalEntry, error)
 	AddLocalEntry(LocalEntry) error
 	DeleteLocalEntry(hostname string) error
-	TestLookup(hostname string) (string, error)
+	TestLookup(hostname string) (result string, upstream string, err error)
 	Reload() error
 }
 

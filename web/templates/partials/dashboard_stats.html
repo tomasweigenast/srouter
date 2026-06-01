@@ -1,5 +1,5 @@
 {{define "dashboard_stats"}}
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
   {{/* CPU */}}
   <div class="bg-white border border-gray-200 rounded-xl p-5">
@@ -48,6 +48,24 @@
       <span class="w-2 h-2 rounded-full bg-red-400"></span>
       <span class="text-sm font-medium text-red-400">Disconnected</span>
     </div>
+    {{end}}
+  </div>
+
+  {{/* Internet connectivity */}}
+  <div class="bg-white border border-gray-200 rounded-xl p-5">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Internet</p>
+    {{if .InternetOK}}
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 status-dot-pulse"></span>
+      <span class="text-sm font-medium text-emerald-400">Reachable</span>
+    </div>
+    <p class="text-xs text-gray-500 mt-1">ping 8.8.8.8 OK</p>
+    {{else}}
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-red-400"></span>
+      <span class="text-sm font-medium text-red-400">Unreachable</span>
+    </div>
+    <p class="text-xs text-gray-500 mt-1">ping 8.8.8.8 failed</p>
     {{end}}
   </div>
 

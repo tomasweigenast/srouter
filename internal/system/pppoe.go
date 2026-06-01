@@ -19,19 +19,14 @@ func GetPPPoEStatus() (PPPoEStatus, error) {
 	iface := "ppp0"
 	status := PPPoEStatus{Iface: iface}
 
-	// Check if ppp0 exists and is UP
+	// Check if ppp0 exists (operstate on PPP interfaces is often "unknown" even when up)
 	statePath := fmt.Sprintf("/sys/class/net/%s/operstate", iface)
-	state, err := os.ReadFile(statePath)
-	if err != nil {
+	if _, err := os.ReadFile(statePath); err != nil {
 		// Interface doesn't exist — not connected
 		return status, nil
 	}
-	status.Connected = strings.TrimSpace(string(state)) == "up"
-	if !status.Connected {
-		return status, nil
-	}
 
-	// Get IP via `ip addr show ppp0`
+	// Get IP via `ip addr show ppp0` — presence of an IP means connected
 	out, err := exec.Command("ip", "addr", "show", iface).Output()
 	if err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
@@ -44,6 +39,11 @@ func GetPPPoEStatus() (PPPoEStatus, error) {
 				break
 			}
 		}
+	}
+
+	status.Connected = status.PublicIP != ""
+	if !status.Connected {
+		return status, nil
 	}
 
 	// Estimate uptime from carrier_changes — approximate with ifindex file mtime

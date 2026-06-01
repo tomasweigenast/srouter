@@ -47,6 +47,8 @@ func (MockSystem) ReconnectPPPoE() error {
 	return nil
 }
 
+func (MockSystem) CheckInternetConnectivity() (bool, error) { return true, nil }
+
 func (MockSystem) GetSystemInfo() (SystemInfo, error) {
 	return SystemInfo{
 		Hostname:   "router",
@@ -139,8 +141,8 @@ func (MockSystem) DeleteLocalEntry(hostname string) error {
 	return nil
 }
 
-func (MockSystem) TestLookup(hostname string) (string, error) {
-	return "93.184.216.34 (mock)", nil
+func (MockSystem) TestLookup(hostname string) (string, string, error) {
+	return "93.184.216.34\n2600:1406:3a00::6812:263e (mock)", "1.1.1.1", nil
 }
 
 func (MockSystem) Reload() error {

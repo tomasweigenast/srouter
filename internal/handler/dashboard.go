@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"database/sql"
 	"fmt"
 	"html/template"
 	"log/slog"
+	"net"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -16,12 +19,12 @@ import (
 	"github.com/tomasweigenast/srouter/web"
 )
 
-// Device is a connected LAN device merged from ARP table + DHCP leases.
+// Device is a currently-connected LAN device from ARP, enriched with DHCP hostname and optional label.
 type Device struct {
 	IP       string
 	MAC      string
 	Hostname string
-	Source   string // "dhcp" | "arp"
+	Label    string
 }
 
 type dashboardPage struct {
@@ -34,17 +37,19 @@ type dashboardPage struct {
 }
 
 type dashboardData struct {
-	CPU      system.CPUInfo
-	Memory   system.MemInfo
-	Disks    []system.DiskInfo
-	PPPoE    system.PPPoEStatus
-	SysInfo  system.SystemInfo
+	CPU          system.CPUInfo
+	Memory       system.MemInfo
+	Disks        []system.DiskInfo
+	PPPoE        system.PPPoEStatus
+	SysInfo      system.SystemInfo
+	InternetOK   bool
 }
 
 type DashboardHandler struct {
 	metrics  system.Metrics
 	dhcp     system.DHCP
 	net      system.Network
+	db       *sql.DB
 	interval time.Duration
 	tmpl     *template.Template
 }
@@ -55,6 +60,7 @@ func NewDashboardHandler(i do.Injector) (*DashboardHandler, error) {
 		metrics:  do.MustInvoke[system.Metrics](i),
 		dhcp:     do.MustInvoke[system.DHCP](i),
 		net:      do.MustInvoke[system.Network](i),
+		db:       do.MustInvoke[*sql.DB](i),
 		interval: time.Duration(cfg.UpdateIntervalMs) * time.Millisecond,
 		tmpl:     web.MustParsePage("dashboard"),
 	}, nil
@@ -63,6 +69,8 @@ func NewDashboardHandler(i do.Injector) (*DashboardHandler, error) {
 func (h *DashboardHandler) Register(r chi.Router) {
 	r.Get("/dashboard", h.showDashboard)
 	r.Get("/events/dashboard", h.sseDashboard)
+	r.Post("/dashboard/labels", h.setLabel)
+	r.Delete("/dashboard/labels/{mac}", h.deleteLabel)
 }
 
 func (h *DashboardHandler) showDashboard(w http.ResponseWriter, r *http.Request) {
@@ -122,29 +130,112 @@ func (h *DashboardHandler) sseDashboard(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+func (h *DashboardHandler) setLabel(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	mac := r.FormValue("mac")
+	label := r.FormValue("label")
+	if mac == "" || label == "" {
+		http.Error(w, "mac and label required", http.StatusBadRequest)
+		return
+	}
+	if err := system.SetDeviceLabel(h.db, mac, label); err != nil {
+		slog.Error("set device label", "mac", mac, "err", err)
+		http.Error(w, "failed", http.StatusInternalServerError)
+		return
+	}
+	// Return an updated device row — look up the device in current ARP+DHCP
+	_, devices := h.gatherData()
+	for _, d := range devices {
+		if d.MAC == mac {
+			html, _ := web.RenderPartial(h.tmpl, "device_row", d)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(html))
+			return
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *DashboardHandler) deleteLabel(w http.ResponseWriter, r *http.Request) {
+	mac := chi.URLParam(r, "mac")
+	if err := system.DeleteDeviceLabel(h.db, mac); err != nil {
+		slog.Error("delete device label", "mac", mac, "err", err)
+		http.Error(w, "failed", http.StatusInternalServerError)
+		return
+	}
+	_, devices := h.gatherData()
+	for _, d := range devices {
+		if d.MAC == mac {
+			html, _ := web.RenderPartial(h.tmpl, "device_row", d)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(html))
+			return
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
 	cpu, _ := h.metrics.GetCPU()
 	mem, _ := h.metrics.GetMemory()
 	disks, _ := h.metrics.GetDisks()
 	pppoe, _ := h.metrics.GetPPPoEStatus()
 	sysInfo, _ := h.metrics.GetSystemInfo()
+	internetOK, _ := h.metrics.CheckInternetConnectivity()
 
 	leases, _ := h.dhcp.GetLeases()
 	arp, _ := h.net.GetARPTable()
+	labels, _ := system.ListDeviceLabels(h.db)
 
-	byMAC := map[string]*Device{}
+	// Index DHCP leases by MAC for hostname lookup
+	hostnameByMAC := map[string]string{}
 	for _, l := range leases {
-		byMAC[l.MAC] = &Device{IP: l.IP, MAC: l.MAC, Hostname: l.Hostname, Source: "dhcp"}
-	}
-	for _, a := range arp {
-		if _, ok := byMAC[a.MAC]; !ok {
-			byMAC[a.MAC] = &Device{IP: a.IP, MAC: a.MAC, Source: "arp"}
+		if l.Hostname != "" {
+			hostnameByMAC[l.MAC] = l.Hostname
 		}
 	}
-	devices := make([]Device, 0, len(byMAC))
-	for _, d := range byMAC {
-		devices = append(devices, *d)
+
+	// ARP table = currently connected devices; enrich with hostname and label
+	devices := make([]Device, 0, len(arp))
+	for _, a := range arp {
+		devices = append(devices, Device{
+			IP:       a.IP,
+			MAC:      a.MAC,
+			Hostname: hostnameByMAC[a.MAC],
+			Label:    labels[a.MAC],
+		})
 	}
 
-	return dashboardData{CPU: cpu, Memory: mem, Disks: disks, PPPoE: pppoe, SysInfo: sysInfo}, devices
+	// Sort by IP ascending
+	sort.Slice(devices, func(i, j int) bool {
+		return ipLess(devices[i].IP, devices[j].IP)
+	})
+
+	return dashboardData{
+		CPU:        cpu,
+		Memory:     mem,
+		Disks:      disks,
+		PPPoE:      pppoe,
+		SysInfo:    sysInfo,
+		InternetOK: internetOK,
+	}, devices
+}
+
+func ipLess(a, b string) bool {
+	ia := net.ParseIP(a)
+	ib := net.ParseIP(b)
+	if ia == nil || ib == nil {
+		return a < b
+	}
+	ia = ia.To4()
+	ib = ib.To4()
+	if ia == nil || ib == nil {
+		return a < b
+	}
+	for i := range ia {
+		if ia[i] != ib[i] {
+			return ia[i] < ib[i]
+		}
+	}
+	return false
 }

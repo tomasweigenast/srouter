@@ -9,7 +9,8 @@ func (RealSystem) GetCPU() (CPUInfo, error)           { return GetCPU() }
 func (RealSystem) GetMemory() (MemInfo, error)         { return GetMemory() }
 func (RealSystem) GetDisks() ([]DiskInfo, error)       { return GetDisks() }
 func (RealSystem) GetPPPoEStatus() (PPPoEStatus, error) { return GetPPPoEStatus() }
-func (RealSystem) ReconnectPPPoE() error               { return ReconnectPPPoE() }
+func (RealSystem) ReconnectPPPoE() error                       { return ReconnectPPPoE() }
+func (RealSystem) CheckInternetConnectivity() (bool, error)    { return CheckInternetConnectivity() }
 func (RealSystem) GetSystemInfo() (SystemInfo, error)  { return GetSystemInfo() }
 func (RealSystem) GetRouterPackages() ([]RouterPackage, error) { return GetRouterPackages() }
 
@@ -28,7 +29,7 @@ func (RealSystem) SetUpstreamServers(s []UpstreamServer) error        { return S
 func (RealSystem) GetLocalEntries() ([]LocalEntry, error)             { return GetLocalEntries() }
 func (RealSystem) AddLocalEntry(e LocalEntry) error                   { return AddLocalEntry(e) }
 func (RealSystem) DeleteLocalEntry(hostname string) error             { return DeleteLocalEntry(hostname) }
-func (RealSystem) TestLookup(hostname string) (string, error)         { return TestLookup(hostname) }
+func (RealSystem) TestLookup(hostname string) (string, string, error) { return TestLookup(hostname) }
 func (RealSystem) Reload() error                                       { return ReloadDNSMasq() }
 
 // Network
