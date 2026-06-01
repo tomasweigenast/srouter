@@ -115,15 +115,22 @@ func DeleteLocalEntry(hostname string) error {
 	return os.WriteFile(dnsmasqConf, []byte(strings.Join(lines, "\n")+"\n"), 0644)
 }
 
-func TestLookup(hostname string) (string, error) {
-	out, err := exec.Command("dig", "+short", hostname, "@127.0.0.1").Output()
+// TestLookup resolves hostname against a configured upstream DNS server directly,
+// bypassing the local dnsmasq cache so the test verifies upstream reachability.
+func TestLookup(hostname string) (string, string, error) {
+	upstream := "8.8.8.8"
+	if servers, err := GetUpstreamServers(); err == nil && len(servers) > 0 {
+		upstream = servers[0].Address
+	}
+
+	out, err := exec.Command("dig", "+short", hostname, "@"+upstream).Output()
 	if err != nil {
 		// Fallback to nslookup
-		out2, err2 := exec.Command("nslookup", hostname, "127.0.0.1").Output()
+		out2, err2 := exec.Command("nslookup", hostname, upstream).Output()
 		if err2 != nil {
-			return "", fmt.Errorf("lookup failed: %w", err)
+			return "", upstream, fmt.Errorf("lookup failed: %w", err)
 		}
-		return strings.TrimSpace(string(out2)), nil
+		return strings.TrimSpace(string(out2)), upstream, nil
 	}
-	return strings.TrimSpace(string(out)), nil
+	return strings.TrimSpace(string(out)), upstream, nil
 }

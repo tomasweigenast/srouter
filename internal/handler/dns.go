@@ -121,11 +121,15 @@ func (h *DNSHandler) deleteEntry(w http.ResponseWriter, r *http.Request) {
 
 func (h *DNSHandler) testLookup(w http.ResponseWriter, r *http.Request) {
 	hostname := r.FormValue("hostname")
-	result, err := h.dns.TestLookup(hostname)
+	result, upstream, err := h.dns.TestLookup(hostname)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err != nil {
 		fmt.Fprintf(w, `<span class="text-red-400">%s</span>`, err.Error())
 		return
 	}
-	fmt.Fprintf(w, `<span class="text-emerald-600 mono">%s</span>`, result)
+	fmt.Fprintf(w,
+		`<pre class="text-emerald-600 mono text-xs whitespace-pre-wrap">%s</pre>`+
+			`<p class="text-xs text-gray-500 mt-1">Queried upstream: %s (local cache bypassed)</p>`,
+		result, upstream,
+	)
 }
