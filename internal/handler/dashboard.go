@@ -171,6 +171,10 @@ func (h *DashboardHandler) setLabel(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "mac and label required", http.StatusBadRequest)
 		return
 	}
+	if err := validateMAC(mac); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := system.SetDeviceLabel(h.db, mac, label); err != nil {
 		dashboardLogger.Error("set device label", "mac", mac, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
@@ -191,6 +195,10 @@ func (h *DashboardHandler) setLabel(w http.ResponseWriter, r *http.Request) {
 
 func (h *DashboardHandler) deleteLabel(w http.ResponseWriter, r *http.Request) {
 	mac := chi.URLParam(r, "mac")
+	if err := validateMAC(mac); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := system.DeleteDeviceLabel(h.db, mac); err != nil {
 		dashboardLogger.Error("delete device label", "mac", mac, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
@@ -226,6 +234,10 @@ func (h *DashboardHandler) blockDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "mac required", http.StatusBadRequest)
 		return
 	}
+	if err := validateMAC(mac); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := system.BlockDevice(h.db, mac); err != nil {
 		dashboardLogger.Error("block device", "mac", mac, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
@@ -245,6 +257,10 @@ func (h *DashboardHandler) blockDevice(w http.ResponseWriter, r *http.Request) {
 
 func (h *DashboardHandler) unblockDevice(w http.ResponseWriter, r *http.Request) {
 	mac := chi.URLParam(r, "mac")
+	if err := validateMAC(mac); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := system.UnblockDevice(h.db, mac); err != nil {
 		dashboardLogger.Error("unblock device", "mac", mac, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)

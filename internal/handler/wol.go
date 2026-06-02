@@ -67,6 +67,10 @@ func (h *WoLHandler) addDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "name and mac required", http.StatusBadRequest)
 		return
 	}
+	if err := validateMAC(d.MAC); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	id, err := system.AddWoLDevice(h.db, d)
 	if err != nil {
 		wolLogger.Error("add wol device", "err", err)
