@@ -52,6 +52,10 @@ func main() {
 	// Update checker
 	do.ProvideValue(i, system.NewUpdateChecker(cfg.DevMode))
 
+	// Reboot reset channel — buffered so the handler never blocks.
+	rebootCh := make(chan struct{}, 1)
+	do.ProvideValue[chan<- struct{}](i, rebootCh)
+
 	// SSE streams
 	do.Provide(i, func(i do.Injector) (system.LogStream, error) {
 		cfg := do.MustInvoke[config.Config](i)
@@ -93,7 +97,7 @@ func main() {
 
 	// ── Background workers ───────────────────────────────────────────────
 	go session.CleanupLoop(database, time.Hour)
-	go system.RebootWatchLoop(database)
+	go system.RebootWatchLoop(database, rebootCh)
 	go system.UpdateCheckLoop(do.MustInvoke[*system.UpdateChecker](i), 6*time.Hour)
 
 	// ── HTTP router ──────────────────────────────────────────────────────

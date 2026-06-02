@@ -7,8 +7,12 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Success toast after update installs and the service comes back up.
-- Port forward rules now include a LOG entry (`-j LOG --log-prefix "NAME: "`) so new connections appear in the Firewall logs.
+- Port forward rules now include a LOG entry so new connections appear in the Firewall logs.
 - Port Forwarding page explains that it writes to `50-portforward.sh` and that manually written rules need a `# PF:` comment to appear in the UI.
+
+### Fixed
+
+- Scheduled reboot loop now wakes up immediately when the schedule is saved or canceled instead of polling every minute.
 
 ## v1.1.2
 

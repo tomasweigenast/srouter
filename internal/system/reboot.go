@@ -44,24 +44,40 @@ func ExecuteReboot() error {
 	return nil
 }
 
-// RebootWatchLoop fires a reboot every day at the configured HH:MM.
-// It ticks every 30 seconds and uses a "last fired" date to avoid double-triggering.
-func RebootWatchLoop(db *sql.DB) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	var lastFired string // "YYYY-MM-DD" of last reboot trigger
-	for now := range ticker.C {
+// RebootWatchLoop fires a reboot at the configured daily HH:MM.
+// Send to resetCh (buffered, cap 1) after saving or canceling the schedule
+// to wake the loop immediately instead of waiting for the current timer to expire.
+func RebootWatchLoop(db *sql.DB, resetCh <-chan struct{}) {
+	for {
 		tod, ok, err := GetScheduledReboot(db)
 		if err != nil || !ok {
+			// No schedule — block until the user sets one.
+			<-resetCh
 			continue
 		}
-		today := now.Format("2006-01-02")
-		current := now.Format("15:04")
-		if current == tod && lastFired != today {
-			lastFired = today
-			rebootLogger.Info("executing daily scheduled reboot", "time", tod)
-			ExecuteReboot()
-			return
+
+		timer := time.NewTimer(time.Until(nextOccurrence(tod)))
+		select {
+		case <-resetCh:
+			timer.Stop()
+			continue
+		case <-timer.C:
 		}
+
+		rebootLogger.Info("executing daily scheduled reboot", "time", tod)
+		ExecuteReboot()
+		return
 	}
+}
+
+// nextOccurrence returns the next wall-clock moment for a "HH:MM" time-of-day.
+// If that time has already passed today, it returns tomorrow's occurrence.
+func nextOccurrence(tod string) time.Time {
+	now := time.Now()
+	t, _ := time.ParseInLocation("15:04", tod, now.Location())
+	next := time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), 0, 0, now.Location())
+	if now.After(next) {
+		next = next.Add(24 * time.Hour)
+	}
+	return next
 }

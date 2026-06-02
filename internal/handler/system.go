@@ -21,16 +21,18 @@ var systemLogger = logging.GetLogger("system")
 var timeRE = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 
 type SystemHandler struct {
-	db      *sql.DB
-	updater *system.UpdateChecker
-	tmpl    *template.Template
+	db        *sql.DB
+	updater   *system.UpdateChecker
+	tmpl      *template.Template
+	rebootCh  chan<- struct{}
 }
 
 func NewSystemHandler(i do.Injector) (*SystemHandler, error) {
 	return &SystemHandler{
-		db:      do.MustInvoke[*sql.DB](i),
-		updater: do.MustInvoke[*system.UpdateChecker](i),
-		tmpl:    web.MustParsePage("system"),
+		db:       do.MustInvoke[*sql.DB](i),
+		updater:  do.MustInvoke[*system.UpdateChecker](i),
+		tmpl:     web.MustParsePage("system"),
+		rebootCh: do.MustInvoke[chan<- struct{}](i),
 	}, nil
 }
 
@@ -85,6 +87,10 @@ func (h *SystemHandler) schedule(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, false, "Failed to save.")
 		return
 	}
+	select {
+	case h.rebootCh <- struct{}{}:
+	default:
+	}
 	html, _ := web.RenderPartial(h.tmpl, "schedule_status", systemPage{
 		Scheduled:     true,
 		ScheduledTime: tod,
@@ -94,6 +100,10 @@ func (h *SystemHandler) schedule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SystemHandler) cancelSchedule(w http.ResponseWriter, r *http.Request) {
+	select {
+	case h.rebootCh <- struct{}{}:
+	default:
+	}
 	if err := system.CancelScheduledReboot(h.db); err != nil {
 		systemLogger.Error("cancel scheduled reboot", "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
