@@ -16,7 +16,7 @@ All notable changes to this project will be documented in this file.
 
 - Rate-limit `POST /login` to 10 attempts per minute per source IP (HTTP 429 on excess). Prevents credential brute-force via repeated login submissions.
 - Add CSRF protection via `Origin` header validation on all state-changing requests (POST/PUT/DELETE/PATCH). Requests carrying an `Origin` that does not match the server's own host are rejected with HTTP 403. Works alongside the existing `SameSite=Strict` session cookie for defense-in-depth.
-- Verify SHA-256 checksum of downloaded update binary before replacing the running binary. The updater now looks for a `srouter-linux.sha256` asset in the GitHub release; if present, the hash must match or the install is aborted. Releases without a checksum asset log a warning and proceed (backward compatibility). **Maintainer note**: add `sha256sum srouter-linux > srouter-linux.sha256` to the release workflow to activate verification.
+- Verify SHA-256 checksum of downloaded update binary before replacing the running binary. The updater looks for a `srouter-linux.sha256` asset in the GitHub release; if present, the hash must match or the install is aborted. The release workflow now generates and uploads this file automatically.
 
 ### Fixed
 

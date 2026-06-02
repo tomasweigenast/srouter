@@ -59,6 +59,9 @@ jobs:
                 ./cmd
             "
 
+      - name: Generate SHA-256 checksum
+        run: sha256sum bin/srouter-linux | awk '{print $1}' > bin/srouter-linux.sha256
+
       - name: Package release archive
         run: |
           tar -czf bin/srouter-linux.tar.gz \
@@ -108,4 +111,5 @@ jobs:
           body_path: /tmp/release-notes.md
           files: |
             bin/srouter-linux
+            bin/srouter-linux.sha256
             bin/srouter-linux.tar.gz
