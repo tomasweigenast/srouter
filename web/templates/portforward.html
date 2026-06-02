@@ -11,6 +11,12 @@
     </button>
   </div>
 
+  <p class="text-xs text-gray-500">
+    This UI writes simplified iptables rules to <span class="mono">/etc/firewall.d/50-portforward.sh</span>.
+    Only rules added here are shown — manually written rules in that file won't appear unless they include a
+    <span class="mono"># PF: name|proto|extport|intip|intport</span> comment line above them.
+  </p>
+
   <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
     <div class="overflow-x-auto">
       <table class="w-full text-sm">

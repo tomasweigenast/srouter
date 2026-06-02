@@ -194,12 +194,15 @@ func AddPortForwardRule(r PortForwardRule) error {
 	}
 	defer f.Close()
 
+	logPrefix := strings.ToUpper(r.Name)
 	block := fmt.Sprintf(
 		"\n# PF: %s|%s|%s|%s|%s\n"+
 			"iptables -t nat -A PREROUTING -i ppp0 -p %s --dport %s -j DNAT --to-destination %s:%s\n"+
+			"iptables -A FORWARD -i ppp0 -o lan -p %s -d %s --dport %s -m state --state NEW -j LOG --log-prefix \"%s: \"\n"+
 			"iptables -A FORWARD -i ppp0 -o lan -p %s -d %s --dport %s -m state --state NEW -j ACCEPT\n",
 		r.Name, r.Protocol, r.ExtPort, r.IntIP, r.IntPort,
 		r.Protocol, r.ExtPort, r.IntIP, r.IntPort,
+		r.Protocol, r.IntIP, r.IntPort, logPrefix,
 		r.Protocol, r.IntIP, r.IntPort,
 	)
 	_, err = fmt.Fprint(f, block)

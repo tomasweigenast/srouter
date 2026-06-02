@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.1.3
+
+### Added
+
+- Success toast after update installs and the service comes back up.
+- Port forward rules now include a LOG entry (`-j LOG --log-prefix "NAME: "`) so new connections appear in the Firewall logs.
+- Port Forwarding page explains that it writes to `50-portforward.sh` and that manually written rules need a `# PF:` comment to appear in the UI.
+
 ## v1.1.2
 
 ### Fixed
