@@ -2,6 +2,8 @@ package system
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -22,12 +25,14 @@ var logger = logging.GetLogger("updater")
 
 const githubRepo = "tomasweigenast/srouter"
 const updateAssetName = "srouter-linux"
+const checksumAssetName = "srouter-linux.sha256"
 
 type UpdateInfo struct {
 	Version      string
 	PublishedAt  time.Time
 	ReleaseNotes string
 	AssetURL     string
+	ChecksumURL  string // URL of the SHA-256 checksum file; empty on older releases
 	HTMLURL      string
 }
 
@@ -153,6 +158,16 @@ func (uc *UpdateChecker) Install(ctx context.Context) error {
 		return fmt.Errorf("chmod update: %w", err)
 	}
 
+	if info.ChecksumURL != "" {
+		logger.Info("update install: verifying SHA-256 checksum")
+		if err := verifySHA256(ctx, tmpPath, info.ChecksumURL); err != nil {
+			return fmt.Errorf("integrity check failed: %w", err)
+		}
+		logger.Info("update install: checksum verified")
+	} else {
+		logger.Warn("update install: no checksum asset found in release — skipping integrity check")
+	}
+
 	if err := os.Rename(tmpPath, installPath); err != nil {
 		return fmt.Errorf("replace binary: %w", err)
 	}
@@ -198,6 +213,47 @@ func UpdateCheckLoop(uc *UpdateChecker, interval time.Duration) {
 	}
 }
 
+// verifySHA256 downloads the checksum file at checksumURL (format: "<hex>  <filename>"
+// or just "<hex>") and compares it against the SHA-256 of the file at filePath.
+func verifySHA256(ctx context.Context, filePath, checksumURL string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, checksumURL, nil)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("download checksum: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 256))
+	if err != nil {
+		return fmt.Errorf("read checksum: %w", err)
+	}
+	fields := strings.Fields(string(body))
+	if len(fields) == 0 {
+		return fmt.Errorf("checksum file is empty")
+	}
+	expected := strings.ToLower(fields[0])
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("open file: %w", err)
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return fmt.Errorf("hash file: %w", err)
+	}
+	actual := hex.EncodeToString(h.Sum(nil))
+
+	if actual != expected {
+		return fmt.Errorf("SHA-256 mismatch: expected %s got %s", expected, actual)
+	}
+	return nil
+}
+
 type githubRelease struct {
 	TagName     string         `json:"tag_name"`
 	HTMLURL     string         `json:"html_url"`
@@ -239,11 +295,13 @@ func (uc *UpdateChecker) fetchLatestRelease(ctx context.Context) UpdateStatus {
 		return UpdateStatus{Checked: time.Now(), Error: fmt.Sprintf("parse response: %s", err)}
 	}
 
-	var assetURL string
+	var assetURL, checksumURL string
 	for _, a := range release.Assets {
-		if a.Name == updateAssetName {
+		switch a.Name {
+		case updateAssetName:
 			assetURL = a.BrowserDownloadURL
-			break
+		case checksumAssetName:
+			checksumURL = a.BrowserDownloadURL
 		}
 	}
 
@@ -252,6 +310,7 @@ func (uc *UpdateChecker) fetchLatestRelease(ctx context.Context) UpdateStatus {
 		PublishedAt:  release.PublishedAt,
 		ReleaseNotes: release.Body,
 		AssetURL:     assetURL,
+		ChecksumURL:  checksumURL,
 		HTMLURL:      release.HTMLURL,
 	}
 	available := AppVersion != "dev" && AppVersion != "" && release.TagName != AppVersion
