@@ -103,6 +103,7 @@ func main() {
 	// ── HTTP router ──────────────────────────────────────────────────────
 	r := chi.NewRouter()
 	r.Use(chimw.Recoverer)
+	r.Use(appmw.RequireLocalOrigin)
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Frame-Options", "DENY")

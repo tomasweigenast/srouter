@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - Validate MAC address format (`XX:XX:XX:XX:XX:XX`) in dashboard block/unblock/label endpoints and Wake-on-LAN device creation before the value reaches iptables or the database.
 
 - Rate-limit `POST /login` to 10 attempts per minute per source IP (HTTP 429 on excess). Prevents credential brute-force via repeated login submissions.
+- Add CSRF protection via `Origin` header validation on all state-changing requests (POST/PUT/DELETE/PATCH). Requests carrying an `Origin` that does not match the server's own host are rejected with HTTP 403. Works alongside the existing `SameSite=Strict` session cookie for defense-in-depth.
 
 ### Fixed
 
