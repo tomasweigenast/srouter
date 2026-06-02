@@ -2,16 +2,18 @@ package handler
 
 import (
 	"html/template"
-	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var pfLogger = logging.GetLogger("portforward")
 
 type PortForwardHandler struct {
 	fw   system.Firewall
@@ -67,7 +69,7 @@ func (h *PortForwardHandler) add(w http.ResponseWriter, r *http.Request) {
 		rule.IntPort = rule.ExtPort
 	}
 	if err := h.fw.AddPortForwardRule(rule); err != nil {
-		slog.Error("add port forward rule", "err", err)
+		pfLogger.Error("add port forward rule", "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
@@ -79,7 +81,7 @@ func (h *PortForwardHandler) add(w http.ResponseWriter, r *http.Request) {
 func (h *PortForwardHandler) delete(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 	if err := h.fw.DeletePortForwardRule(name); err != nil {
-		slog.Error("delete port forward rule", "name", name, "err", err)
+		pfLogger.Error("delete port forward rule", "name", name, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
@@ -88,7 +90,7 @@ func (h *PortForwardHandler) delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *PortForwardHandler) apply(w http.ResponseWriter, r *http.Request) {
 	if err := h.fw.ApplyFirewall(); err != nil {
-		slog.Error("apply firewall (portforward)", "err", err)
+		pfLogger.Error("apply firewall (portforward)", "err", err)
 		writeJSON(w, false, "Failed to apply firewall.")
 		return
 	}

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -12,10 +11,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var dnsHandlerLogger = logging.GetLogger("dns")
 
 type DNSHandler struct {
 	dns   system.DNS
@@ -70,7 +72,7 @@ func (h *DNSHandler) setUpstream(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err := h.dns.SetUpstreamServers(servers); err != nil {
-		slog.Error("set upstream servers", "err", err)
+		dnsHandlerLogger.Error("set upstream servers", "err", err)
 		writeJSON(w, false, "Failed to save.")
 		return
 	}
@@ -98,7 +100,7 @@ func (h *DNSHandler) addEntry(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.dns.AddLocalEntry(entry); err != nil {
-		slog.Error("add local entry", "err", err)
+		dnsHandlerLogger.Error("add local entry", "err", err)
 		writeJSON(w, false, "Failed to add entry.")
 		return
 	}
@@ -112,7 +114,7 @@ func (h *DNSHandler) addEntry(w http.ResponseWriter, r *http.Request) {
 func (h *DNSHandler) deleteEntry(w http.ResponseWriter, r *http.Request) {
 	hostname := chi.URLParam(r, "hostname")
 	if err := h.dns.DeleteLocalEntry(hostname); err != nil {
-		slog.Error("delete local entry", "hostname", hostname, "err", err)
+		dnsHandlerLogger.Error("delete local entry", "hostname", hostname, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}

@@ -8,7 +8,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/tomasweigenast/srouter/internal/logging"
 )
+
+var logLogger = logging.GetLogger("logs")
 
 type LogLine struct {
 	Raw      string
@@ -165,6 +169,7 @@ func (lb *LogBroadcaster) Stop() {
 func (lb *LogBroadcaster) run() {
 	f, err := os.Open(lb.path)
 	if err != nil {
+		logLogger.Error("open log file", "path", lb.path, "err", err)
 		return
 	}
 	defer f.Close()

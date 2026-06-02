@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net"
 	"net/http"
 	"sort"
@@ -15,10 +14,13 @@ import (
 	"github.com/samber/do/v2"
 
 	"github.com/tomasweigenast/srouter/internal/config"
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var dashboardLogger = logging.GetLogger("dashboard")
 
 // Device is a currently-connected LAN device from ARP, enriched with DHCP hostname, optional label, and block state.
 type Device struct {
@@ -131,25 +133,25 @@ func (h *DashboardHandler) sseDashboard(w http.ResponseWriter, r *http.Request) 
 	for {
 		select {
 		case <-r.Context().Done():
-			slog.Debug("dashboard SSE client disconnected")
+			dashboardLogger.Debug("dashboard SSE client disconnected")
 			return
 		case <-ticker.C:
 			data, devices := h.gatherData()
 
 			statsHTML, err := web.RenderSSE(h.tmpl, "dashboard_stats", data)
 			if err != nil {
-				slog.Error("render dashboard_stats", "err", err)
+				dashboardLogger.Error("render dashboard_stats", "err", err)
 				continue
 			}
 			devicesHTML, err := web.RenderSSE(h.tmpl, "dashboard_devices", devices)
 			if err != nil {
-				slog.Error("render dashboard_devices", "err", err)
+				dashboardLogger.Error("render dashboard_devices", "err", err)
 				continue
 			}
 
 			sysinfoHTML, err := web.RenderSSE(h.tmpl, "dashboard_sysinfo", data.SysInfo)
 			if err != nil {
-				slog.Error("render dashboard_sysinfo", "err", err)
+				dashboardLogger.Error("render dashboard_sysinfo", "err", err)
 				continue
 			}
 
@@ -170,7 +172,7 @@ func (h *DashboardHandler) setLabel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := system.SetDeviceLabel(h.db, mac, label); err != nil {
-		slog.Error("set device label", "mac", mac, "err", err)
+		dashboardLogger.Error("set device label", "mac", mac, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
@@ -190,7 +192,7 @@ func (h *DashboardHandler) setLabel(w http.ResponseWriter, r *http.Request) {
 func (h *DashboardHandler) deleteLabel(w http.ResponseWriter, r *http.Request) {
 	mac := chi.URLParam(r, "mac")
 	if err := system.DeleteDeviceLabel(h.db, mac); err != nil {
-		slog.Error("delete device label", "mac", mac, "err", err)
+		dashboardLogger.Error("delete device label", "mac", mac, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
@@ -225,7 +227,7 @@ func (h *DashboardHandler) blockDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := system.BlockDevice(h.db, mac); err != nil {
-		slog.Error("block device", "mac", mac, "err", err)
+		dashboardLogger.Error("block device", "mac", mac, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
@@ -244,7 +246,7 @@ func (h *DashboardHandler) blockDevice(w http.ResponseWriter, r *http.Request) {
 func (h *DashboardHandler) unblockDevice(w http.ResponseWriter, r *http.Request) {
 	mac := chi.URLParam(r, "mac")
 	if err := system.UnblockDevice(h.db, mac); err != nil {
-		slog.Error("unblock device", "mac", mac, "err", err)
+		dashboardLogger.Error("unblock device", "mac", mac, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}

@@ -4,16 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var speedtestLogger = logging.GetLogger("speedtest")
 
 type SpeedtestHandler struct {
 	tmpl *template.Template
@@ -55,7 +57,7 @@ func (h *SpeedtestHandler) run(w http.ResponseWriter, r *http.Request) {
 	emit := func(event string, v any) {
 		data, err := json.Marshal(v)
 		if err != nil {
-			slog.Error("speedtest marshal", "event", event, "err", err)
+			speedtestLogger.Error("speedtest marshal", "event", event, "err", err)
 			return
 		}
 		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data)

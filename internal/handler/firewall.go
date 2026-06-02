@@ -2,17 +2,19 @@ package handler
 
 import (
 	"html/template"
-	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var firewallLogger = logging.GetLogger("firewall")
 
 type FirewallHandler struct {
 	fw   system.Firewall
@@ -102,21 +104,21 @@ func (h *FirewallHandler) saveScript(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("filename")
 	content := r.FormValue("content")
 	if err := h.fw.SaveFirewallScript(name, content); err != nil {
-		slog.Error("save firewall file", "name", name, "err", err)
+		firewallLogger.Error("save firewall file", "name", name, "err", err)
 		writeJSON(w, false, err.Error())
 		return
 	}
-	slog.Info("firewall file saved", "name", name)
+	firewallLogger.Info("firewall file saved", "name", name)
 	writeJSON(w, true, "Saved.")
 }
 
 func (h *FirewallHandler) apply(w http.ResponseWriter, r *http.Request) {
 	if err := h.fw.ApplyFirewall(); err != nil {
-		slog.Error("apply firewall", "err", err)
+		firewallLogger.Error("apply firewall", "err", err)
 		writeJSON(w, false, "Failed: "+err.Error())
 		return
 	}
-	slog.Info("firewall applied")
+	firewallLogger.Info("firewall applied")
 	writeJSON(w, true, "Applied successfully.")
 }
 
@@ -139,7 +141,7 @@ func (h *FirewallHandler) addCustomRule(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := h.fw.AddCustomRule(rule); err != nil {
-		slog.Error("add custom rule", "err", err)
+		firewallLogger.Error("add custom rule", "err", err)
 		writeJSON(w, false, "Failed to add rule.")
 		return
 	}
@@ -156,7 +158,7 @@ func (h *FirewallHandler) deleteCustomRule(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err := h.fw.DeleteCustomRule(idx); err != nil {
-		slog.Error("delete custom rule", "index", idx, "err", err)
+		firewallLogger.Error("delete custom rule", "index", idx, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}

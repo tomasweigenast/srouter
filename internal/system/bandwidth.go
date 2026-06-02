@@ -6,7 +6,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/tomasweigenast/srouter/internal/logging"
 )
+
+var bwLogger = logging.GetLogger("bandwidth")
 
 type BandwidthSample struct {
 	Timestamp int64
@@ -110,6 +114,7 @@ func readNetDev() map[string][2]uint64 {
 	result := map[string][2]uint64{}
 	f, err := os.Open("/proc/net/dev")
 	if err != nil {
+		bwLogger.Error("read /proc/net/dev", "err", err)
 		return result
 	}
 	defer f.Close()

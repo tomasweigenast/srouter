@@ -3,17 +3,19 @@ package handler
 import (
 	"database/sql"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var wolLogger = logging.GetLogger("wol")
 
 type WoLHandler struct {
 	db   *sql.DB
@@ -67,7 +69,7 @@ func (h *WoLHandler) addDevice(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := system.AddWoLDevice(h.db, d)
 	if err != nil {
-		slog.Error("add wol device", "err", err)
+		wolLogger.Error("add wol device", "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
@@ -84,7 +86,7 @@ func (h *WoLHandler) deleteDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := system.DeleteWoLDevice(h.db, id); err != nil {
-		slog.Error("delete wol device", "id", id, "err", err)
+		wolLogger.Error("delete wol device", "id", id, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
@@ -110,10 +112,10 @@ func (h *WoLHandler) sendPacket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.wol.SendMagicPacket(mac); err != nil {
-		slog.Error("send magic packet", "mac", mac, "err", err)
+		wolLogger.Error("send magic packet", "mac", mac, "err", err)
 		writeJSON(w, false, "Failed: "+err.Error())
 		return
 	}
-	slog.Info("magic packet sent", "mac", mac)
+	wolLogger.Info("magic packet sent", "mac", mac)
 	writeJSON(w, true, "Magic packet sent!")
 }

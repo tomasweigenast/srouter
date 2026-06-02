@@ -4,17 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"regexp"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var systemLogger = logging.GetLogger("system")
 
 var timeRE = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 
@@ -66,7 +68,7 @@ func (h *SystemHandler) show(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SystemHandler) reboot(w http.ResponseWriter, r *http.Request) {
-	slog.Info("manual reboot requested")
+	systemLogger.Info("manual reboot requested")
 	writeJSON(w, true, "Rebooting…")
 	go system.ExecuteReboot()
 }
@@ -79,7 +81,7 @@ func (h *SystemHandler) schedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := system.ScheduleDailyReboot(h.db, tod); err != nil {
-		slog.Error("schedule daily reboot", "err", err)
+		systemLogger.Error("schedule daily reboot", "err", err)
 		writeJSON(w, false, "Failed to save.")
 		return
 	}
@@ -93,7 +95,7 @@ func (h *SystemHandler) schedule(w http.ResponseWriter, r *http.Request) {
 
 func (h *SystemHandler) cancelSchedule(w http.ResponseWriter, r *http.Request) {
 	if err := system.CancelScheduledReboot(h.db); err != nil {
-		slog.Error("cancel scheduled reboot", "err", err)
+		systemLogger.Error("cancel scheduled reboot", "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
 		return
 	}
@@ -109,7 +111,7 @@ func (h *SystemHandler) checkUpdate(w http.ResponseWriter, r *http.Request) {
 		Update:     status,
 	})
 	if err != nil {
-		slog.Error("render update_status partial", "err", err)
+		systemLogger.Error("render update_status partial", "err", err)
 		http.Error(w, "render failed", http.StatusInternalServerError)
 		return
 	}
@@ -118,10 +120,10 @@ func (h *SystemHandler) checkUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SystemHandler) installUpdate(w http.ResponseWriter, r *http.Request) {
-	slog.Info("update install requested")
+	systemLogger.Info("update install requested")
 	go func() {
 		if err := h.updater.Install(context.Background()); err != nil {
-			slog.Error("install update", "err", err)
+			systemLogger.Error("install update", "err", err)
 		}
 	}()
 	writeJSON(w, true, "Installing update, service will restart shortly…")

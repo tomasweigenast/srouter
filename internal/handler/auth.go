@@ -3,7 +3,6 @@ package handler
 import (
 	"database/sql"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -12,9 +11,12 @@ import (
 	pam "github.com/msteinert/pam/v2"
 
 	"github.com/tomasweigenast/srouter/internal/config"
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var authLogger = logging.GetLogger("auth")
 
 type AuthHandler struct {
 	db        *sql.DB
@@ -55,10 +57,10 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 			web.Render(w, h.loginTmpl, loginPage{Error: "Username required."})
 			return
 		}
-		slog.Info("[dev] login bypassed", "username", username)
+		authLogger.Info("[dev] login bypassed", "username", username)
 	} else {
 		if err := pamAuthenticate(username, password); err != nil {
-			slog.Warn("login failed", "username", username, "err", err)
+			authLogger.Warn("login failed", "username", username, "err", err)
 			web.Render(w, h.loginTmpl, loginPage{Error: "Invalid username or password."})
 			return
 		}
@@ -66,7 +68,7 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	sess, err := session.Create(h.db, username)
 	if err != nil {
-		slog.Error("create session", "err", err)
+		authLogger.Error("create session", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -80,7 +82,7 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	slog.Info("login", "username", username)
+	authLogger.Info("login", "username", username)
 	http.Redirect(w, r, "/dashboard", http.StatusFound)
 }
 

@@ -3,17 +3,19 @@ package handler
 import (
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var dhcpLogger = logging.GetLogger("dhcp")
 
 type DHCPHandler struct {
 	dhcp system.DHCP
@@ -97,7 +99,7 @@ func (h *DHCPHandler) addReservation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.dhcp.AddReservation(res); err != nil {
-		slog.Error("add reservation", "err", err)
+		dhcpLogger.Error("add reservation", "err", err)
 		writeJSON(w, false, "Failed to add reservation.")
 		return
 	}
@@ -110,7 +112,7 @@ func (h *DHCPHandler) addReservation(w http.ResponseWriter, r *http.Request) {
 func (h *DHCPHandler) deleteReservation(w http.ResponseWriter, r *http.Request) {
 	mac := chi.URLParam(r, "mac")
 	if err := h.dhcp.DeleteReservation(mac); err != nil {
-		slog.Error("delete reservation", "mac", mac, "err", err)
+		dhcpLogger.Error("delete reservation", "mac", mac, "err", err)
 		http.Error(w, "failed to delete reservation", http.StatusInternalServerError)
 		return
 	}
@@ -133,7 +135,7 @@ func (h *DHCPHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 		LeaseTime:  r.FormValue("lease_time"),
 	}
 	if err := h.dhcp.SaveDHCPConfig(cfg); err != nil {
-		slog.Error("save dhcp config", "err", err)
+		dhcpLogger.Error("save dhcp config", "err", err)
 		writeJSON(w, false, "Failed to save config.")
 		return
 	}

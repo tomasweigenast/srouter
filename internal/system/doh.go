@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
-	"log/slog"
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"net"
 	"net/url"
 	"os"
@@ -29,6 +29,8 @@ const (
 	dnscryptCache   = "/var/cache/dnscrypt-proxy"
 	DnscryptListen  = "127.0.0.1#5454"
 )
+
+var dohLogger = logging.GetLogger("doh")
 
 // DoHProvider describes a built-in encrypted DNS resolver.
 type DoHProvider struct {
@@ -240,7 +242,7 @@ func EnableEncryptedDNS(db *sql.DB, cfg DoHConfig) error {
 	// Stash current plain upstream servers before overwriting.
 	current, err := GetUpstreamServers()
 	if err != nil {
-		slog.Warn("could not read current upstream servers before enabling encrypted DNS", "err", err)
+		dohLogger.Warn("could not read current upstream servers before enabling encrypted DNS", "err", err)
 	}
 	cfg.StashedUpstreams = stashUpstreams(current, cfg.StashedUpstreams)
 	cfg.Enabled = true
@@ -255,7 +257,7 @@ func EnableEncryptedDNS(db *sql.DB, cfg DoHConfig) error {
 			return err
 		}
 		if err := exec.Command("rc-service", "stubby", "start").Run(); err != nil {
-			slog.Warn("start stubby", "err", err)
+			dohLogger.Warn("start stubby", "err", err)
 		}
 		_ = exec.Command("rc-update", "add", "stubby", "default").Run()
 	}
@@ -265,7 +267,7 @@ func EnableEncryptedDNS(db *sql.DB, cfg DoHConfig) error {
 			return err
 		}
 		if err := exec.Command("rc-service", "dnscrypt-proxy", "start").Run(); err != nil {
-			slog.Warn("start dnscrypt-proxy", "err", err)
+			dohLogger.Warn("start dnscrypt-proxy", "err", err)
 		}
 		_ = exec.Command("rc-update", "add", "dnscrypt-proxy", "default").Run()
 	}
@@ -455,7 +457,7 @@ func buildEncryptedServers(cfg DoHConfig) []UpstreamServer {
 func stopAllEncryptedDNS() {
 	for _, svc := range []string{"stubby", "dnscrypt-proxy"} {
 		if out, err := exec.Command("rc-service", svc, "stop").CombinedOutput(); err != nil {
-			slog.Debug("stop encrypted dns service", "service", svc, "output", string(out), "err", err)
+			dohLogger.Debug("stop encrypted dns service", "service", svc, "output", string(out), "err", err)
 		}
 		_ = exec.Command("rc-update", "del", svc).Run()
 	}

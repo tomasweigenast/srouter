@@ -4,16 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var bwHandlerLogger = logging.GetLogger("bandwidth-handler")
 
 type BandwidthHandler struct {
 	bw   system.BandwidthStream
@@ -60,7 +62,7 @@ func (h *BandwidthHandler) sseStream(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-r.Context().Done():
-			slog.Debug("bandwidth SSE client disconnected")
+			bwHandlerLogger.Debug("bandwidth SSE client disconnected")
 			return
 		case sample, ok := <-ch:
 			if !ok {

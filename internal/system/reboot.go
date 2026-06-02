@@ -4,10 +4,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os/exec"
 	"time"
+
+	"github.com/tomasweigenast/srouter/internal/logging"
 )
+
+var rebootLogger = logging.GetLogger("reboot")
 
 // ScheduleDailyReboot stores a daily reboot time (e.g. "23:30").
 func ScheduleDailyReboot(db *sql.DB, timeOfDay string) error {
@@ -56,7 +59,7 @@ func RebootWatchLoop(db *sql.DB) {
 		current := now.Format("15:04")
 		if current == tod && lastFired != today {
 			lastFired = today
-			slog.Info("executing daily scheduled reboot", "time", tod)
+			rebootLogger.Info("executing daily scheduled reboot", "time", tod)
 			ExecuteReboot()
 			return
 		}

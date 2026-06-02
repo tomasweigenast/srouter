@@ -3,16 +3,18 @@ package handler
 import (
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var logsHandlerLogger = logging.GetLogger("logs-handler")
 
 type LogsHandler struct {
 	logs system.LogStream
@@ -72,7 +74,7 @@ func (h *LogsHandler) sseStream(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-r.Context().Done():
-			slog.Debug("logs SSE client disconnected")
+			logsHandlerLogger.Debug("logs SSE client disconnected")
 			return
 		case line, ok := <-ch:
 			if !ok {

@@ -7,10 +7,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var networkLogger = logging.GetLogger("network")
 
 type NetworkHandler struct {
 	net  system.Network
@@ -53,10 +56,22 @@ func (h *NetworkHandler) refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NetworkHandler) buildPage(activePage, username string) networkPage {
-	ifaces, _ := h.net.GetInterfaces()
-	arp, _ := h.net.GetARPTable()
-	routes, _ := h.net.GetRoutes()
-	conntrack, _ := h.net.GetConntrackStats()
+	ifaces, err := h.net.GetInterfaces()
+	if err != nil {
+		networkLogger.Warn("get interfaces", "err", err)
+	}
+	arp, err := h.net.GetARPTable()
+	if err != nil {
+		networkLogger.Warn("get arp table", "err", err)
+	}
+	routes, err := h.net.GetRoutes()
+	if err != nil {
+		networkLogger.Warn("get routes", "err", err)
+	}
+	conntrack, err := h.net.GetConntrackStats()
+	if err != nil {
+		networkLogger.Warn("get conntrack stats", "err", err)
+	}
 	return networkPage{
 		ActivePage: activePage,
 		Username:   username,

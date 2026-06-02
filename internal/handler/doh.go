@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -12,10 +11,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/samber/do/v2"
 
+	"github.com/tomasweigenast/srouter/internal/logging"
 	"github.com/tomasweigenast/srouter/internal/session"
 	"github.com/tomasweigenast/srouter/internal/system"
 	"github.com/tomasweigenast/srouter/web"
 )
+
+var dohHandlerLogger = logging.GetLogger("doh-handler")
 
 type DoHHandler struct {
 	doh   system.DoH
@@ -51,7 +53,7 @@ func (h *DoHHandler) show(w http.ResponseWriter, r *http.Request) {
 	sess, _ := session.FromContext(r.Context())
 	status, err := h.doh.GetDoHStatus()
 	if err != nil {
-		slog.Error("get doh status", "err", err)
+		dohHandlerLogger.Error("get doh status", "err", err)
 	}
 	web.Render(w, h.tmpl, dohPage{
 		ActivePage: "doh",
@@ -93,13 +95,13 @@ func (h *DoHHandler) toggle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := h.doh.EnableEncryptedDNS(cfg); err != nil {
-			slog.Error("enable encrypted dns", "err", err)
+			dohHandlerLogger.Error("enable encrypted dns", "err", err)
 			writeJSON(w, false, "Failed to enable encrypted DNS.")
 			return
 		}
 	} else {
 		if err := h.doh.DisableEncryptedDNS(); err != nil {
-			slog.Error("disable encrypted dns", "err", err)
+			dohHandlerLogger.Error("disable encrypted dns", "err", err)
 			writeJSON(w, false, "Failed to disable encrypted DNS.")
 			return
 		}
@@ -131,7 +133,7 @@ func (h *DoHHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 
 	if status.Config.Enabled {
 		if err := h.doh.EnableEncryptedDNS(cfg); err != nil {
-			slog.Error("reapply encrypted dns config", "err", err)
+			dohHandlerLogger.Error("reapply encrypted dns config", "err", err)
 			writeJSON(w, false, "Failed to apply new config.")
 			return
 		}
@@ -141,7 +143,7 @@ func (h *DoHHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.doh.SaveDoHConfig(cfg); err != nil {
-		slog.Error("save doh config", "err", err)
+		dohHandlerLogger.Error("save doh config", "err", err)
 		writeJSON(w, false, "Failed to save config.")
 		return
 	}
