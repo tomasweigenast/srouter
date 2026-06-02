@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -13,7 +12,13 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/tomasweigenast/srouter/internal/logging"
 )
+
+const installPath = "/usr/local/bin/srouter"
+
+var logger = logging.GetLogger("updater")
 
 const githubRepo = "tomasweigenast/srouter"
 const updateAssetName = "srouter-linux"
@@ -96,26 +101,17 @@ func (uc *UpdateChecker) Install(ctx context.Context) error {
 		return fmt.Errorf("no update available or asset URL missing")
 	}
 
-	slog.Info("update install: starting", "version", info.Version)
+	logger.Info("update install: starting", "version", info.Version)
 
 	if uc.devMode {
-		slog.Info("update install: dev mode — simulating download")
+		logger.Info("update install: dev mode — simulating download")
 		time.Sleep(2 * time.Second)
-		slog.Info("update install: dev mode — simulating restart")
+		logger.Info("update install: dev mode — simulating restart")
 		return nil
 	}
 
-	execPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("locate binary: %w", err)
-	}
-	execPath, err = filepath.EvalSymlinks(execPath)
-	if err != nil {
-		return fmt.Errorf("resolve symlink: %w", err)
-	}
-
 	// Download to a temp file in the same directory to ensure same filesystem for rename.
-	dir := filepath.Dir(execPath)
+	dir := filepath.Dir(installPath)
 	tmp, err := os.CreateTemp(dir, "srouter-update-*")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
@@ -127,7 +123,7 @@ func (uc *UpdateChecker) Install(ctx context.Context) error {
 		}
 	}()
 
-	slog.Info("update install: downloading asset", "url", info.AssetURL)
+	logger.Info("update install: downloading asset", "url", info.AssetURL)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, info.AssetURL, nil)
 	if err != nil {
@@ -151,16 +147,16 @@ func (uc *UpdateChecker) Install(ctx context.Context) error {
 		return fmt.Errorf("write update: %w", err)
 	}
 	tmp.Close()
-	slog.Info("update install: download complete", "bytes", n)
+	logger.Info("update install: download complete", "bytes", n)
 
 	if err := os.Chmod(tmpPath, 0755); err != nil {
 		return fmt.Errorf("chmod update: %w", err)
 	}
 
-	if err := os.Rename(tmpPath, execPath); err != nil {
+	if err := os.Rename(tmpPath, installPath); err != nil {
 		return fmt.Errorf("replace binary: %w", err)
 	}
-	slog.Info("update install: binary replaced", "path", execPath)
+	logger.Info("update install: binary replaced", "path", installPath)
 
 	// Spawn a fully-detached shell script (new session via Setsid) that:
 	//   1. Sends SIGTERM to the current process.
@@ -184,7 +180,7 @@ func (uc *UpdateChecker) Install(ctx context.Context) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("spawn restart script: %w", err)
 	}
-	slog.Info("update install: restart script spawned", "pid", pid)
+	logger.Info("update install: restart script spawned", "pid", pid)
 	return nil
 }
 
@@ -194,9 +190,9 @@ func UpdateCheckLoop(uc *UpdateChecker, interval time.Duration) {
 	for {
 		status := uc.Check(context.Background())
 		if status.Error != "" {
-			slog.Warn("update check failed", "err", status.Error)
+			logger.Warn("update check failed", "err", status.Error)
 		} else if status.Available && status.Info != nil {
-			slog.Info("update available", "version", status.Info.Version)
+			logger.Info("update available", "version", status.Info.Version)
 		}
 		time.Sleep(interval)
 	}
