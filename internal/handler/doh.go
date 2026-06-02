@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"html/template"
 	"net/http"
 	"strings"
@@ -201,24 +202,24 @@ func (h *DoHHandler) testLookup(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.doh.TestEncryptedLookup(hostname)
 	if err != nil {
-		fmt.Fprintf(w, `<p class="text-red-400 text-sm">%s</p>`, err.Error())
+		fmt.Fprintf(w, `<p class="text-red-400 text-sm">%s</p>`, html.EscapeString(err.Error()))
 		return
 	}
 
 	fmt.Fprint(w, `<div class="space-y-3 text-sm">`)
-	fmt.Fprintf(w, `<div><p class="text-xs font-medium text-gray-500 uppercase mb-1">DoT (stubby :5353) — %s</p>`, result.DoTLatency)
+	fmt.Fprintf(w, `<div><p class="text-xs font-medium text-gray-500 uppercase mb-1">DoT (stubby :5353) — %s</p>`, html.EscapeString(result.DoTLatency))
 	if result.DoTErr != "" {
-		fmt.Fprintf(w, `<p class="text-red-400 font-mono text-xs">%s</p>`, result.DoTErr)
+		fmt.Fprintf(w, `<p class="text-red-400 font-mono text-xs">%s</p>`, html.EscapeString(result.DoTErr))
 	} else {
-		fmt.Fprintf(w, `<p class="text-emerald-600 font-mono text-xs">%s</p>`, strings.Join(result.DoTAddrs, ", "))
+		fmt.Fprintf(w, `<p class="text-emerald-600 font-mono text-xs">%s</p>`, html.EscapeString(strings.Join(result.DoTAddrs, ", ")))
 	}
 	fmt.Fprint(w, `</div>`)
 
-	fmt.Fprintf(w, `<div><p class="text-xs font-medium text-gray-500 uppercase mb-1">DoH (dnscrypt-proxy :5454) — %s</p>`, result.DoHLatency)
+	fmt.Fprintf(w, `<div><p class="text-xs font-medium text-gray-500 uppercase mb-1">DoH (dnscrypt-proxy :5454) — %s</p>`, html.EscapeString(result.DoHLatency))
 	if result.DoHErr != "" {
-		fmt.Fprintf(w, `<p class="text-red-400 font-mono text-xs">%s</p>`, result.DoHErr)
+		fmt.Fprintf(w, `<p class="text-red-400 font-mono text-xs">%s</p>`, html.EscapeString(result.DoHErr))
 	} else {
-		fmt.Fprintf(w, `<p class="text-emerald-600 font-mono text-xs">%s</p>`, strings.Join(result.DoHAddrs, ", "))
+		fmt.Fprintf(w, `<p class="text-emerald-600 font-mono text-xs">%s</p>`, html.EscapeString(strings.Join(result.DoHAddrs, ", ")))
 	}
 	fmt.Fprint(w, `</div></div>`)
 }

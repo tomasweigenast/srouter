@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Security
+
+- Validate firewall custom-rule fields (Chain, Action, Protocol, IPs, ports, interfaces) and port-forward fields (Name, Protocol, ports, IP) against allowlists and format checks before writing into shell scripts executed as root. Prevents shell injection via crafted inputs.
+- HTML-escape all dynamic values written inline with `fmt.Fprintf` in DNS and DoH test-lookup responses. Prevents stored XSS via a crafted DNS upstream address.
+- Validate DNS upstream server addresses (format: IP or hostname with optional `#port`) before writing to `dnsmasq.conf`.
+
 ## v1.1.3
 
 ### Added

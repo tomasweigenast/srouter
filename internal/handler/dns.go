@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"html/template"
 	"net/http"
 	"strings"
@@ -67,9 +68,15 @@ func (h *DNSHandler) setUpstream(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	var servers []system.UpstreamServer
 	for _, addr := range r.Form["server"] {
-		if addr != "" {
-			servers = append(servers, system.UpstreamServer{Address: strings.TrimSpace(addr)})
+		addr = strings.TrimSpace(addr)
+		if addr == "" {
+			continue
 		}
+		if err := validateDNSServer(addr); err != nil {
+			writeJSON(w, false, fmt.Sprintf("Invalid server address: %s", err))
+			return
+		}
+		servers = append(servers, system.UpstreamServer{Address: addr})
 	}
 	if err := h.dns.SetUpstreamServers(servers); err != nil {
 		dnsHandlerLogger.Error("set upstream servers", "err", err)
@@ -150,12 +157,12 @@ func (h *DNSHandler) testLookup(w http.ResponseWriter, r *http.Request) {
 	result, upstream, err := h.dns.TestLookup(hostname)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err != nil {
-		fmt.Fprintf(w, `<p class="text-red-400 text-sm">%s</p>`, err.Error())
+		fmt.Fprintf(w, `<p class="text-red-400 text-sm">%s</p>`, html.EscapeString(err.Error()))
 		return
 	}
 	fmt.Fprintf(w,
 		`<pre class="text-emerald-600 mono text-xs whitespace-pre-wrap">%s</pre>`+
 			`<p class="text-xs text-gray-500 mt-1">Queried upstream: %s (local cache bypassed)</p>`,
-		result, upstream,
+		html.EscapeString(result), html.EscapeString(upstream),
 	)
 }
