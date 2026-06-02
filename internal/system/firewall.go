@@ -218,25 +218,29 @@ func DeletePortForwardRule(name string) error {
 		return fmt.Errorf("open port forward file: %w", err)
 	}
 
+	// Each AddPortForwardRule block: "\n# PF: name|...\niptables ...\niptables ...\niptables ..."
+	// We need to drop the comment line, the 3 iptables lines that follow, and the
+	// preceding blank line that the \n prefix creates.
 	var (
-		lines []string
-		skip  bool
+		lines    []string
+		skipLeft int // iptables lines remaining to drop after the PF comment
 	)
 	marker := fmt.Sprintf("# PF: %s|", name)
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(strings.TrimSpace(line), marker) {
-			skip = true
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, marker) {
+			skipLeft = 3
+			// Drop the preceding blank line written by AddPortForwardRule's "\n" prefix.
+			if len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+				lines = lines[:len(lines)-1]
+			}
 			continue
 		}
-		if skip && strings.Contains(line, "iptables") {
-			// skip the two iptables lines following the PF comment
-			skip = false
+		if skipLeft > 0 && strings.HasPrefix(trimmed, "iptables") {
+			skipLeft--
 			continue
-		}
-		if skip {
-			skip = false
 		}
 		lines = append(lines, line)
 	}

@@ -14,6 +14,10 @@ All notable changes to this project will be documented in this file.
 - Write firewall shell scripts with permission `0750` instead of `0755`, removing world-execute bit from files that may contain user-influenced content.
 - Validate MAC address format (`XX:XX:XX:XX:XX:XX`) in dashboard block/unblock/label endpoints and Wake-on-LAN device creation before the value reaches iptables or the database.
 
+### Fixed
+
+- `DeletePortForwardRule` now correctly removes all three iptables lines per rule block (PREROUTING DNAT + two FORWARD rules). Previously only the first iptables line was dropped, leaving two stale rules in `50-portforward.sh` after a deletion.
+
 ## v1.1.3
 
 ### Added
