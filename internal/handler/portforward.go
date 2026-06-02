@@ -68,6 +68,13 @@ func (h *PortForwardHandler) add(w http.ResponseWriter, r *http.Request) {
 	if rule.IntPort == "" {
 		rule.IntPort = rule.ExtPort
 	}
+	if rule.Protocol == "" {
+		rule.Protocol = "tcp"
+	}
+	if err := validatePortForwardRule(rule); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := h.fw.AddPortForwardRule(rule); err != nil {
 		pfLogger.Error("add port forward rule", "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)
@@ -80,6 +87,10 @@ func (h *PortForwardHandler) add(w http.ResponseWriter, r *http.Request) {
 
 func (h *PortForwardHandler) delete(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
+	if !pfNameRE.MatchString(name) {
+		http.Error(w, "invalid rule name", http.StatusBadRequest)
+		return
+	}
 	if err := h.fw.DeletePortForwardRule(name); err != nil {
 		pfLogger.Error("delete port forward rule", "name", name, "err", err)
 		http.Error(w, "failed", http.StatusInternalServerError)

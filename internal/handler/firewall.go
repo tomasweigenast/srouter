@@ -140,6 +140,10 @@ func (h *FirewallHandler) addCustomRule(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, false, "Chain and Action are required.")
 		return
 	}
+	if err := validateFirewallRule(rule); err != nil {
+		writeJSON(w, false, err.Error())
+		return
+	}
 	if err := h.fw.AddCustomRule(rule); err != nil {
 		firewallLogger.Error("add custom rule", "err", err)
 		writeJSON(w, false, "Failed to add rule.")
