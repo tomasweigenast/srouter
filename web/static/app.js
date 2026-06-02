@@ -173,6 +173,7 @@ async function installUpdate(btn) {
         if (wentDown) {
           // Service is back — reload to show new version.
           setStatus('Update complete — reloading…');
+          sessionStorage.setItem('update_success', '1');
           setTimeout(() => window.location.reload(), 800);
           return;
         }
@@ -231,3 +232,10 @@ document.addEventListener('submit', async function(e) {
   const errSel = form.dataset.errorTarget;
   if (errSel) { const el = document.querySelector(errSel); if (el) el.textContent = ''; }
 });
+
+// ─── Post-update success toast ────────────────────────────────────────────────
+
+if (sessionStorage.getItem('update_success')) {
+  sessionStorage.removeItem('update_success');
+  toast('Update installed successfully!', 'success');
+}
