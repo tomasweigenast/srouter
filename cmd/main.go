@@ -133,7 +133,7 @@ func main() {
 	doHHandler          := do.MustInvoke[*handler.DoHHandler](i)
 
 	// Public routes
-	authHandler.Register(r)
+	authHandler.Register(r, appmw.LoginLimiter(10, time.Minute))
 
 	// Authenticated routes
 	r.Group(func(r chi.Router) {

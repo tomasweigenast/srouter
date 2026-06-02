@@ -34,9 +34,9 @@ func NewAuthHandler(i do.Injector) (*AuthHandler, error) {
 	}, nil
 }
 
-func (h *AuthHandler) Register(r chi.Router) {
+func (h *AuthHandler) Register(r chi.Router, loginMiddleware ...func(http.Handler) http.Handler) {
 	r.Get("/login", h.showLogin)
-	r.Post("/login", h.handleLogin)
+	r.With(loginMiddleware...).Post("/login", h.handleLogin)
 	r.Post("/logout", h.handleLogout)
 }
 
