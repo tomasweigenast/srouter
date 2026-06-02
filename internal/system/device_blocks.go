@@ -82,5 +82,5 @@ func writeBlocksScript(db *sql.DB) error {
 	if err := os.MkdirAll("/etc/firewall.d", 0755); err != nil {
 		return fmt.Errorf("mkdir firewall.d: %w", err)
 	}
-	return os.WriteFile(blocksScript, []byte(sb.String()), 0755)
+	return os.WriteFile(blocksScript, []byte(sb.String()), 0750)
 }

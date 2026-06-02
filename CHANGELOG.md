@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Validate DNS upstream server addresses (format: IP or hostname with optional `#port`) before writing to `dnsmasq.conf`.
 - Add `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: same-origin` response headers on all routes.
 - Limit request body to 10 MB to prevent memory exhaustion from crafted large uploads.
+- Write firewall shell scripts with permission `0750` instead of `0755`, removing world-execute bit from files that may contain user-influenced content.
 
 ## v1.1.3
 

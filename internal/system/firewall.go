@@ -101,7 +101,7 @@ func SaveFirewallScript(name, content string) error {
 		return err
 	}
 	path := filepath.Join(firewallDDir, name)
-	if err := os.WriteFile(path, []byte(content), 0755); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0750); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
@@ -188,7 +188,7 @@ func GetPortForwardRules() ([]PortForwardRule, error) {
 }
 
 func AddPortForwardRule(r PortForwardRule) error {
-	f, err := os.OpenFile(portForwardFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0755)
+	f, err := os.OpenFile(portForwardFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0750)
 	if err != nil {
 		return fmt.Errorf("open port forward file: %w", err)
 	}
@@ -242,7 +242,7 @@ func DeletePortForwardRule(name string) error {
 	}
 	f.Close()
 
-	return os.WriteFile(portForwardFile, []byte(strings.Join(lines, "\n")+"\n"), 0755)
+	return os.WriteFile(portForwardFile, []byte(strings.Join(lines, "\n")+"\n"), 0750)
 }
 
 // GetCustomRules parses iptables commands from 99-custom.sh into FirewallRule slice.
@@ -276,11 +276,11 @@ func AddCustomRule(r FirewallRule) error {
 	}
 	// Ensure file exists with shebang
 	if _, err := os.Stat(customRulesFile); os.IsNotExist(err) {
-		if err := os.WriteFile(customRulesFile, []byte("#!/bin/sh\n"), 0755); err != nil {
+		if err := os.WriteFile(customRulesFile, []byte("#!/bin/sh\n"), 0750); err != nil {
 			return fmt.Errorf("create custom rules file: %w", err)
 		}
 	}
-	f, err := os.OpenFile(customRulesFile, os.O_APPEND|os.O_WRONLY, 0755)
+	f, err := os.OpenFile(customRulesFile, os.O_APPEND|os.O_WRONLY, 0750)
 	if err != nil {
 		return fmt.Errorf("open custom rules: %w", err)
 	}
@@ -306,7 +306,7 @@ func DeleteCustomRule(index int) error {
 			keep = append(keep, line)
 		}
 	}
-	return os.WriteFile(customRulesFile, []byte(strings.Join(keep, "\n")+"\n"), 0755)
+	return os.WriteFile(customRulesFile, []byte(strings.Join(keep, "\n")+"\n"), 0750)
 }
 
 func parseIPTablesLine(line string) FirewallRule {
