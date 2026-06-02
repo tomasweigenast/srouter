@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## v1.1.2
+
+### Fixed
+
+- Self-update now works end-to-end on Alpine. The release binary was previously built on Ubuntu and dynamically linked against glibc, so Alpine's `start-stop-daemon` could not exec it (ELF interpreter `/lib64/ld-linux-x86-64.so.2` missing on musl systems). The CI now builds inside a `golang:1.25-alpine` container, producing a musl-linked binary.
+
+## v1.1.1
+
+### Fixed
+
+- Self-updater now always writes the new binary to `/usr/local/bin/srouter` (the OpenRC service path) instead of resolving the path via `os.Executable()`. Previously, if srouter was running from a different path the binary would land in the wrong location and `rc-service srouter start` would fail.
+
+### Changed
+
+- All log lines now carry a `source=<subsystem>` field (e.g. `source=dhcp`, `source=updater`) via `logging.GetLogger`. Previously most packages used bare `slog.*` calls with no source context, making it hard to filter logs by subsystem.
+- Log broadcaster (`/var/log/messages` tail) and bandwidth sampler (`/proc/net/dev`) now emit an error log if they fail to open their respective files instead of silently returning empty data.
+- Network page now logs warnings when any of the underlying system calls (`GetInterfaces`, `GetARPTable`, `GetRoutes`, `GetConntrackStats`) fail.
+
+## v1.1.0
+
+### Added
+
+- DNS-over-HTTPS (DoH) via `dnscrypt-proxy` and DNS-over-TLS (DoT) via `stubby`. Both can be toggled from the new DoH/DoT page with built-in providers (Cloudflare, Quad9, NextDNS) or a custom server.
+
+### Fixed
+
+- Speedtest latency check now pings `1.1.1.1` instead of `8.8.8.8`.
+
 ## v1.0.6
 
 ### Fixed

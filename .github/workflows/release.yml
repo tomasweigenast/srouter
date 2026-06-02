@@ -27,9 +27,6 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2.2.0
 
-      - name: Install APT build deps
-        run: sudo apt-get install -y gcc libpam0g-dev
-
       - name: Install frontend deps
         run: bun install
 
@@ -43,17 +40,24 @@ jobs:
           cp node_modules/codemirror/mode/shell/shell.js        web/static/vendor/codemirror-shell.js
           cp node_modules/codemirror/theme/monokai.css          web/static/vendor/codemirror-monokai.css
 
-      - name: Build binary
-        env:
-          CGO_ENABLED: "1"
-          GOOS: linux
-          GOARCH: amd64
+      - name: Build binary (Alpine/musl)
+        # Build inside Alpine so the binary links against musl, not glibc.
+        # Alpine's start-stop-daemon cannot exec glibc-linked binaries.
         run: |
           VERSION="${{ github.ref_name }}"
-          go build \
-            -ldflags "-X github.com/tomasweigenast/srouter/internal/system.AppVersion=${VERSION}" \
-            -o bin/srouter-linux \
-            ./cmd
+          mkdir -p bin
+          docker run --rm \
+            -v "${{ github.workspace }}:/build" \
+            -w /build \
+            golang:1.25-alpine \
+            sh -c "
+              apk add --no-cache gcc musl-dev linux-pam-dev && \
+              CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
+              go build \
+                -ldflags '-X github.com/tomasweigenast/srouter/internal/system.AppVersion=${VERSION}' \
+                -o bin/srouter-linux \
+                ./cmd
+            "
 
       - name: Package release archive
         run: |
