@@ -50,12 +50,13 @@ type dashboardData struct {
 }
 
 type DashboardHandler struct {
-	metrics  system.Metrics
-	dhcp     system.DHCP
-	net      system.Network
-	db       *sql.DB
-	interval time.Duration
-	tmpl     *template.Template
+	metrics     system.Metrics
+	dhcp        system.DHCP
+	net         system.Network
+	db          *sql.DB
+	interval    time.Duration
+	tmpl        *template.Template
+	broadcaster *DashboardBroadcaster
 
 	pkgsMu      sync.RWMutex
 	pkgsCache   []system.RouterPackage
@@ -72,6 +73,7 @@ func NewDashboardHandler(i do.Injector) (*DashboardHandler, error) {
 		interval: time.Duration(cfg.UpdateIntervalMs) * time.Millisecond,
 		tmpl:     web.MustParsePage("dashboard"),
 	}
+	h.broadcaster = newDashboardBroadcaster(h.interval, h.gatherData)
 	// Warm the packages cache in the background so the first page load doesn't block.
 	go h.refreshPackages()
 	return h, nil
@@ -127,29 +129,30 @@ func (h *DashboardHandler) sseDashboard(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	ticker := time.NewTicker(h.interval)
-	defer ticker.Stop()
+	ch, unsub := h.broadcaster.Subscribe()
+	defer unsub()
 
 	for {
 		select {
 		case <-r.Context().Done():
 			dashboardLogger.Debug("dashboard SSE client disconnected")
 			return
-		case <-ticker.C:
-			data, devices := h.gatherData()
+		case snap, ok := <-ch:
+			if !ok {
+				return
+			}
 
-			statsHTML, err := web.RenderSSE(h.tmpl, "dashboard_stats", data)
+			statsHTML, err := web.RenderSSE(h.tmpl, "dashboard_stats", snap.Data)
 			if err != nil {
 				dashboardLogger.Error("render dashboard_stats", "err", err)
 				continue
 			}
-			devicesHTML, err := web.RenderSSE(h.tmpl, "dashboard_devices", devices)
+			devicesHTML, err := web.RenderSSE(h.tmpl, "dashboard_devices", snap.Devices)
 			if err != nil {
 				dashboardLogger.Error("render dashboard_devices", "err", err)
 				continue
 			}
-
-			sysinfoHTML, err := web.RenderSSE(h.tmpl, "dashboard_sysinfo", data.SysInfo)
+			sysinfoHTML, err := web.RenderSSE(h.tmpl, "dashboard_sysinfo", snap.Data.SysInfo)
 			if err != nil {
 				dashboardLogger.Error("render dashboard_sysinfo", "err", err)
 				continue
