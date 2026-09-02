@@ -7,6 +7,7 @@
         <th class="px-4 py-3 text-left">IP Address</th>
         <th class="px-4 py-3 text-left">MAC Address</th>
         <th class="px-4 py-3 text-left">Name</th>
+        <th class="px-4 py-3 text-right w-28">Limit</th>
         <th class="px-4 py-3 w-20"></th>
       </tr>
     </thead>
@@ -63,6 +64,44 @@
                   class="text-xs text-gray-500 hover:text-gray-300">✕</button>
         </form>
       </span>
+    {{end}}
+  </td>
+  <td class="px-4 py-3 text-right">
+    {{if .LimitMbps}}
+    <span class="inline-flex items-center gap-1 text-xs">
+      <span class="mono text-amber-300">{{.LimitMbps}} Mbps</span>
+      <button
+        onclick="fetchReplace(this, 'DELETE', '/dashboard/limits/{{.MAC}}', null, '#device-{{macID .MAC}}')"
+        class="text-gray-500 hover:text-red-400 transition-colors"
+        title="Remove download limit">✕</button>
+    </span>
+    {{else}}
+    <span id="limit-toggle-{{macID .MAC}}">
+      <button
+        onclick="document.getElementById('limit-form-{{macID .MAC}}').classList.remove('hidden'); document.getElementById('limit-toggle-{{macID .MAC}}').classList.add('hidden')"
+        class="text-xs text-gray-400 hover:text-amber-400 transition-colors">Limit</button>
+    </span>
+    <span id="limit-form-{{macID .MAC}}" class="hidden">
+      <form
+        data-ajax="true"
+        action="/dashboard/limits"
+        method="post"
+        data-target="#device-{{macID .MAC}}"
+        data-swap="outerHTML"
+        class="flex items-center gap-1">
+        <input type="hidden" name="mac" value="{{.MAC}}">
+        <select name="mbps" required
+                class="bg-gray-100 border border-gray-300 rounded px-1 py-0.5 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500">
+          {{range bandwidthPresets}}
+          <option value="{{.}}">{{.}} Mbps</option>
+          {{end}}
+        </select>
+        <button type="submit" class="text-xs text-blue-400 hover:text-blue-300">Save</button>
+        <button type="button"
+                onclick="document.getElementById('limit-form-{{macID .MAC}}').classList.add('hidden'); document.getElementById('limit-toggle-{{macID .MAC}}').classList.remove('hidden')"
+                class="text-xs text-gray-500 hover:text-gray-300">✕</button>
+      </form>
+    </span>
     {{end}}
   </td>
   <td class="px-4 py-3 text-right">

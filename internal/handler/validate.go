@@ -93,6 +93,15 @@ func validateMAC(mac string) error {
 	return nil
 }
 
+func validateBandwidthMbps(mbps int) error {
+	for _, v := range system.AllowedBandwidthMbps {
+		if v == mbps {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid bandwidth limit %d Mbps: must be one of %v", mbps, system.AllowedBandwidthMbps)
+}
+
 // validateDNSServer validates a dnsmasq upstream server address (IP or hostname, optional #port suffix).
 func validateDNSServer(addr string) error {
 	host := addr

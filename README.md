@@ -25,7 +25,7 @@ Web dashboard for managing an Alpine Linux software router running as a VM in Pr
 | Page | Features |
 |---|---|
 | Login | PAM auth with system Linux users |
-| Dashboard | CPU/memory/disk/uptime, PPPoE WAN status, connected devices (ARP + DHCP merged), live SSE |
+| Dashboard | CPU/memory/disk/uptime, PPPoE WAN status, connected devices (ARP + DHCP merged), block/unblock devices, per-device download bandwidth limits, live SSE |
 | DHCP | Active leases, static reservations CRUD, DHCP range config, dnsmasq reload |
 | DNS | Upstream servers, local A records, DNS test lookup |
 | Network | All interfaces (IP/MAC/MTU/state/RX/TX), routing table, ARP table, conntrack stats |
@@ -228,6 +228,7 @@ web/
 | DHCP/DNS | `/etc/dnsmasq.conf`, `/etc/dnsmasq.d/reservas.conf` | `rc-service dnsmasq reload` |
 | Firewall | `/etc/firewall.sh` (orchestrator), `/etc/firewall.d/*.sh` (rules) | `/etc/firewall.sh` |
 | Port Forwarding | `/etc/firewall.d/50-portforward.sh` | `/etc/firewall.sh` |
+| Bandwidth limiting | `/etc/firewall.d/80-bandwidth-limits.sh` (tc qdisc on `lan`) | Applied automatically on set/delete |
 | PPPoE | `/etc/ppp/peers/provider` | `rc-service pppoe restart` |
 | Interfaces | `/etc/network/interfaces` | `rc-service networking restart` |
 | Logs | `/var/log/messages` | — |

@@ -31,6 +31,7 @@ func main() {
 		logger.Error("loading config", "err", err)
 		os.Exit(1)
 	}
+	system.DevMode = cfg.DevMode
 
 	database, err := db.Open(cfg.DBPath)
 	if err != nil {
@@ -99,6 +100,11 @@ func main() {
 	go session.CleanupLoop(database, time.Hour)
 	go system.RebootWatchLoop(database, rebootCh)
 	go system.UpdateCheckLoop(do.MustInvoke[*system.UpdateChecker](i), 6*time.Hour)
+	go func() {
+		if err := system.ApplyAllBandwidthLimits(database, "lan"); err != nil {
+			logger.Error("apply bandwidth limits", "err", err)
+		}
+	}()
 
 	// ── HTTP router ──────────────────────────────────────────────────────
 	r := chi.NewRouter()
@@ -119,19 +125,19 @@ func main() {
 		})
 	})
 
-	authHandler      := do.MustInvoke[*handler.AuthHandler](i)
+	authHandler := do.MustInvoke[*handler.AuthHandler](i)
 	dashboardHandler := do.MustInvoke[*handler.DashboardHandler](i)
-	dhcpHandler      := do.MustInvoke[*handler.DHCPHandler](i)
-	dnsHandler       := do.MustInvoke[*handler.DNSHandler](i)
-	networkHandler   := do.MustInvoke[*handler.NetworkHandler](i)
-	firewallHandler  := do.MustInvoke[*handler.FirewallHandler](i)
-	pfHandler        := do.MustInvoke[*handler.PortForwardHandler](i)
-	logsHandler      := do.MustInvoke[*handler.LogsHandler](i)
-	bwHandler        := do.MustInvoke[*handler.BandwidthHandler](i)
-	wolHandler          := do.MustInvoke[*handler.WoLHandler](i)
-	speedtestHandler    := do.MustInvoke[*handler.SpeedtestHandler](i)
-	systemHandler       := do.MustInvoke[*handler.SystemHandler](i)
-	doHHandler          := do.MustInvoke[*handler.DoHHandler](i)
+	dhcpHandler := do.MustInvoke[*handler.DHCPHandler](i)
+	dnsHandler := do.MustInvoke[*handler.DNSHandler](i)
+	networkHandler := do.MustInvoke[*handler.NetworkHandler](i)
+	firewallHandler := do.MustInvoke[*handler.FirewallHandler](i)
+	pfHandler := do.MustInvoke[*handler.PortForwardHandler](i)
+	logsHandler := do.MustInvoke[*handler.LogsHandler](i)
+	bwHandler := do.MustInvoke[*handler.BandwidthHandler](i)
+	wolHandler := do.MustInvoke[*handler.WoLHandler](i)
+	speedtestHandler := do.MustInvoke[*handler.SpeedtestHandler](i)
+	systemHandler := do.MustInvoke[*handler.SystemHandler](i)
+	doHHandler := do.MustInvoke[*handler.DoHHandler](i)
 
 	// Public routes
 	authHandler.Register(r, appmw.LoginLimiter(10, time.Minute))

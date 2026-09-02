@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -22,13 +23,15 @@ import (
 
 var dashboardLogger = logging.GetLogger("dashboard")
 
-// Device is a currently-connected LAN device from ARP, enriched with DHCP hostname, optional label, and block state.
+// Device is a currently-connected LAN device from ARP, enriched with DHCP
+// hostname, optional label, block state, and download limit.
 type Device struct {
-	IP       string
-	MAC      string
-	Hostname string
-	Label    string
-	Blocked  bool
+	IP        string
+	MAC       string
+	Hostname  string
+	Label     string
+	Blocked   bool
+	LimitMbps int
 }
 
 type dashboardPage struct {
@@ -41,12 +44,12 @@ type dashboardPage struct {
 }
 
 type dashboardData struct {
-	CPU          system.CPUInfo
-	Memory       system.MemInfo
-	Disks        []system.DiskInfo
-	PPPoE        system.PPPoEStatus
-	SysInfo      system.SystemInfo
-	InternetOK   bool
+	CPU        system.CPUInfo
+	Memory     system.MemInfo
+	Disks      []system.DiskInfo
+	PPPoE      system.PPPoEStatus
+	SysInfo    system.SystemInfo
+	InternetOK bool
 }
 
 type DashboardHandler struct {
@@ -106,6 +109,8 @@ func (h *DashboardHandler) Register(r chi.Router) {
 	r.Delete("/dashboard/labels/{mac}", h.deleteLabel)
 	r.Post("/dashboard/blocks", h.blockDevice)
 	r.Delete("/dashboard/blocks/{mac}", h.unblockDevice)
+	r.Post("/dashboard/limits", h.setLimit)
+	r.Delete("/dashboard/limits/{mac}", h.deleteLimit)
 	r.Post("/dashboard/check-internet", h.checkInternet)
 }
 
@@ -281,6 +286,67 @@ func (h *DashboardHandler) unblockDevice(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *DashboardHandler) setLimit(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	mac := r.FormValue("mac")
+	mbpsStr := r.FormValue("mbps")
+	if mac == "" || mbpsStr == "" {
+		http.Error(w, "mac and mbps required", http.StatusBadRequest)
+		return
+	}
+	if err := validateMAC(mac); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	mbps, err := strconv.Atoi(mbpsStr)
+	if err != nil {
+		http.Error(w, "invalid mbps", http.StatusBadRequest)
+		return
+	}
+	if err := validateBandwidthMbps(mbps); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := system.SetBandwidthLimit(h.db, mac, mbps); err != nil {
+		dashboardLogger.Error("set bandwidth limit", "mac", mac, "mbps", mbps, "err", err)
+		http.Error(w, "failed", http.StatusInternalServerError)
+		return
+	}
+	_, devices := h.gatherData()
+	for _, d := range devices {
+		if d.MAC == mac {
+			html, _ := web.RenderPartial(h.tmpl, "device_row", d)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(html))
+			return
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *DashboardHandler) deleteLimit(w http.ResponseWriter, r *http.Request) {
+	mac := chi.URLParam(r, "mac")
+	if err := validateMAC(mac); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := system.DeleteBandwidthLimit(h.db, mac); err != nil {
+		dashboardLogger.Error("delete bandwidth limit", "mac", mac, "err", err)
+		http.Error(w, "failed", http.StatusInternalServerError)
+		return
+	}
+	_, devices := h.gatherData()
+	for _, d := range devices {
+		if d.MAC == mac {
+			html, _ := web.RenderPartial(h.tmpl, "device_row", d)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(html))
+			return
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
 	var (
 		cpu        system.CPUInfo
@@ -293,9 +359,10 @@ func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
 		arp        []system.ARPEntry
 		labels     map[string]string
 		blocked    map[string]struct{}
+		limits     map[string]int
 		wg         sync.WaitGroup
 	)
-	wg.Add(10)
+	wg.Add(11)
 	go func() { defer wg.Done(); cpu, _ = h.metrics.GetCPU() }()
 	go func() { defer wg.Done(); mem, _ = h.metrics.GetMemory() }()
 	go func() { defer wg.Done(); disks, _ = h.metrics.GetDisks() }()
@@ -306,6 +373,7 @@ func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
 	go func() { defer wg.Done(); arp, _ = h.net.GetARPTable() }()
 	go func() { defer wg.Done(); labels, _ = system.ListDeviceLabels(h.db) }()
 	go func() { defer wg.Done(); blocked, _ = system.ListBlockedMACs(h.db) }()
+	go func() { defer wg.Done(); limits, _ = system.ListBandwidthLimits(h.db) }()
 	wg.Wait()
 
 	// Index DHCP leases by MAC for hostname lookup
@@ -321,11 +389,12 @@ func (h *DashboardHandler) gatherData() (dashboardData, []Device) {
 	for _, a := range arp {
 		_, isBlocked := blocked[a.MAC]
 		devices = append(devices, Device{
-			IP:       a.IP,
-			MAC:      a.MAC,
-			Hostname: hostnameByMAC[a.MAC],
-			Label:    labels[a.MAC],
-			Blocked:  isBlocked,
+			IP:        a.IP,
+			MAC:       a.MAC,
+			Hostname:  hostnameByMAC[a.MAC],
+			Label:     labels[a.MAC],
+			Blocked:   isBlocked,
+			LimitMbps: limits[a.MAC],
 		})
 	}
 

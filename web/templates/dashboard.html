@@ -8,7 +8,7 @@ const dashES = new EventSource('/events/dashboard');
 dashES.addEventListener('stats',   e => swapHTML('#stats-cards',   e.data, 'innerHTML'));
 dashES.addEventListener('sysinfo', e => swapHTML('#sysinfo-bar',   e.data, 'innerHTML'));
 dashES.addEventListener('devices', e => {
-  if (!document.querySelector('[id^="tag-form-"]:not(.hidden)')) {
+  if (!document.querySelector('[id^="tag-form-"]:not(.hidden), [id^="limit-form-"]:not(.hidden)')) {
     swapHTML('#devices-table', e.data, 'innerHTML');
   }
 });

@@ -7,6 +7,8 @@ import (
 	"io/fs"
 	"strings"
 	"time"
+
+	"github.com/tomasweigenast/srouter/internal/system"
 )
 
 //go:embed templates static
@@ -37,6 +39,8 @@ var FuncMap = template.FuncMap{
 	"gb": func(b uint64) string { return fmt.Sprintf("%.1f", float64(b)/1e9) },
 	// macID converts a MAC address (aa:bb:cc) to a CSS-safe ID (aa-bb-cc).
 	"macID": func(mac string) string { return strings.ReplaceAll(mac, ":", "-") },
+	// bandwidthPresets returns the allowed download limit values in Mbps.
+	"bandwidthPresets": func() []int { return system.AllowedBandwidthMbps },
 	// uptimeFmt formats seconds into "Xd Yh Zm" string.
 	"uptimeFmt": func(secs int64) string {
 		d := secs / 86400
